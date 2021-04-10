@@ -1,0 +1,94 @@
+[info]
+title=LSP Client
+desc=LSP Client
+type=cudatext-plugin
+subdir=cuda_lsp
+homepage=https://github.com/halfbrained/cuda_lsp
+
+[item2]
+section=events
+events=on_open,on_save,on_close,on_tab_change
+
+[item3]
+section=events
+events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
+
+[item4]
+section=events
+events=on_exit
+
+
+[item21]
+section=commands
+caption=LSP\Hover
+method=call_hover
+
+[item23]
+section=commands
+caption=LSP\Definition
+method=call_definition
+
+[item24]
+section=commands
+caption=LSP\References
+method=call_references
+
+[item25]
+section=commands
+caption=LSP\Implementation
+method=call_implementation
+
+[item26]
+section=commands
+caption=LSP\Declaration
+method=call_declaration
+
+[item27]
+section=commands
+caption=LSP\Type definition
+method=call_typedef
+
+
+;[item30]
+;section=commands
+;caption=LSP\-
+;method=_
+
+;[item31]
+;section=commands
+;caption=LSP\Workspace symbols (broken)
+;method=dbg_workspace_symbols
+
+;[item32]
+;section=commands
+;caption=LSP\Call hierarchy (broken)
+;method=dbg_call_hierarchy_in
+
+
+[item40]
+section=commands
+caption=LSP\-
+method=_
+
+[item41]
+section=commands
+caption=LSP\Shutdown server...
+method=shutdown_server
+
+[item42]
+section=commands
+caption=LSP\Debug: Docs list...
+method=dbg_show_docs
+
+[item43]
+section=commands
+caption=LSP\Debug: view server responses (current server)
+method=dbg_show_msg
+
+
+
+[item60]
+section=commands
+caption=LSP\Config
+method=config
+menu=o
