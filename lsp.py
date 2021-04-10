@@ -372,7 +372,11 @@ class Command:
     def dbg_show_msg(self, show_bytes=False):
         lex = ed.get_prop(PROP_LEXER_FILE)
         langid = lex2langid(lex)
-        lang = self._langs[langid]
+        lang = self._langs.get(langid)
+        if lang is None:
+            msg_status(f'No messages for server of current document')
+            return
+
         names = ['msg|' + str(msg)[:80]+'...\t'+type(msg).__name__ for msg in lang._dbg_msgs]
         ind = dlg_menu(DMENU_LIST, names)
 
@@ -462,6 +466,10 @@ class Command:
                 if 'name' not in j:
                     j['name'] = os.path.splitext(name)[0]
                 servers_cfgs.append(j)
+
+        if not servers_cfgs:
+            print(f'NOTE: no server configs was found in "{dir_server_configs}"')
+
 
 
     def _save_config(self):
