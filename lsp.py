@@ -2,6 +2,9 @@ import os
 import time
 import json
 
+import sys
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
 from cudatext import *
 from cudax_lib import _json_loads #, get_translation
 import cuda_project_man
