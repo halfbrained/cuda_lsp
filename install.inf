@@ -1,6 +1,6 @@
 [info]
 title=LSP Client
-desc=LSP Client
+desc=Support LSP (Language Server Protocol) servers, for different languages
 type=cudatext-plugin
 subdir=cuda_lsp
 homepage=https://github.com/halfbrained/cuda_lsp
