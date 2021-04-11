@@ -24,7 +24,12 @@ def is_mouse_in_form(h_dlg):
     x, y = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
     x, y = dlg_proc(h_dlg, ct.DLG_COORD_SCREEN_TO_LOCAL, index=x, index2=y)
 
-    return 0<=x<w and 0<=y<h
+    return (0<=x<w and 0<=y<h)
+
+def cursor_dist(pos):
+    cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
+    dist_sqr = (pos[0]-cursor_pos[0])**2 + (pos[1]-cursor_pos[1])**2
+    return dist_sqr**0.5
 
 class Hint:
     """ Short-lived dialog with 'Editor', hidden when mouse leaves it
@@ -74,6 +79,11 @@ class Hint:
 
             cls.h, cls.ed = cls.init_form()
 
+        cls.cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
+        scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
+        cls.cursor_margin = 15 * scale_UI_percent*0.01 # 15px scaled
+
+
         cls.ed.set_prop(ct.PROP_RO, False)
 
         cls.ed.set_text_all(text)
@@ -118,12 +128,13 @@ class Hint:
                     })
         #end if
         # first - large delay, after - smaller
-        ct.timer_proc(ct.TIMER_START_ONE, Hint.hide_check_timer, 1500, tag='initial')
+        ct.timer_proc(ct.TIMER_START_ONE, Hint.hide_check_timer, 750, tag='initial')
         dlg_proc(cls.h, ct.DLG_SHOW_NONMODAL)
 
     @classmethod
     def hide_check_timer(cls, tag='', info=''):
-        if not is_mouse_in_form(cls.h):
+        # hide if not over dialog  and  cursor moved at least ~15px
+        if not is_mouse_in_form(cls.h)  and  cursor_dist(cls.cursor_pos) > cls.cursor_margin:
             ct.timer_proc(ct.TIMER_STOP, Hint.hide_check_timer, 250, tag='')
 
             # clear editor data and hide dialog
