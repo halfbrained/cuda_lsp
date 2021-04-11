@@ -64,6 +64,10 @@ class Language:
         self._tcp_port = cfg.get('tcp_port') # None => use Popen
         self._work_dir = cfg.get('work_dir')
 
+        # expand user in server start cmd
+        if isinstance(self._server_cmd, list):
+            self._server_cmd = [os.path.expanduser(c) for c in self._server_cmd]
+
 
         self._client = None
 
