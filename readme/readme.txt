@@ -15,7 +15,7 @@ Basic config for a python LSP server "pyls" would look like this:
 
 Name of the file is not important.
 
-* List of lanuage identifiers can be seen here:
+* List of language identifiers can be seen here:
 https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
 
 About
