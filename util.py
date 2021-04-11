@@ -18,6 +18,11 @@ def get_first(gen):
 def lex2langid(lex):
     return lang_ids.get(lex)
 
+def langid2name(langid_):
+    for name,langid in lang_ids.items():
+        if langid == langid_:
+            return name
+
 def is_ed_visible(ed):
     h = ed.get_prop(ct.PROP_HANDLE_SELF)
     eds = (ct.ed_group(i) for i in range(8))

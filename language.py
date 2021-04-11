@@ -15,7 +15,7 @@ from cudatext import *
 import cudax_lib as appx
 #from cudax_lib import get_translation
 
-from .util import get_first, ed_uri, get_visible_eds, uri_to_path, path_to_uri
+from .util import get_first, ed_uri, get_visible_eds, uri_to_path, path_to_uri, langid2name
 from .dlg import Hint
 
 from .sansio_lsp_client import client as lsp
@@ -149,7 +149,9 @@ class Language:
             self.err_thread.start()
 
         timer_proc(TIMER_START, self.process_queues, 100, tag='')
-        print(f'Started LSP server: {self.name}')
+
+        langid_names = ', '.join([langid2name(lid) for lid in self.langids])
+        print(f'Started LSP server: {langid_names}')
 
     def _err_read_loop(self):
         try:
@@ -421,8 +423,9 @@ class Language:
 
         if isinstance(items, list):
             targets = [link_to_target(item) for item in items]
-            names = [f'{os.path.basename(uri)}:{range_.start.line}' for uri,range_ in targets]
-            ind = dlg_menu(DMENU_LIST, names, caption=dlg_caption)
+            names = [f'{os.path.basename(uri_to_path(uri))}\tLine: {range_.start.line+1}'
+                        for uri,range_ in targets]
+            ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
             if ind is None:
                 return
             uri,targetrange = targets[ind]
@@ -433,6 +436,7 @@ class Language:
         file_open(targetpath)
         ed.set_caret(targetrange.start.character, targetrange.start.line) # goto specified position start
         ed.set_prop(PROP_LINE_TOP, max(0, targetrange.start.line-3))
+
 
     def show_symbols(self, items):
         # DocumentSymbol - hierarchy
