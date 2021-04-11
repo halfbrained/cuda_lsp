@@ -9,7 +9,7 @@ from .sansio_lsp_client.events import Hover
 ed = ct.ed
 dlg_proc = ct.dlg_proc
 
-FORM_W = 650
+FORM_W = 550
 FORM_H = 350
 FORM_GAP = 4
 
@@ -97,34 +97,33 @@ class Hint:
         cls.ed.set_prop(ct.PROP_RO, True)
 
         if caret is not None:
-            _prop = dlg_proc(cls.h, ct.DLG_PROP_GET)
-            form_w = _prop['w']
-            form_h = _prop['h']
 
-            _pos_x = caret[0]
-            _pos_y = caret[1]
-            pos = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=_pos_x, y=_pos_y)
+            l,t,r,b = ed.get_prop(ct.PROP_RECT_TEXT) # l,t,r,b
+            cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
+            ed_size_x = r - l # text area sizes - to not obscure other ed-controls
+            pos = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
 
-            #gap_out = FORM_GAP_OUT_COLOR if h_dlg==self.h_dlg_color else FORM_GAP_OUT
-            _cell_size = ed.get_prop(ct.PROP_CELL_SIZE)
-            _ed_coord = ed.get_prop(ct.PROP_COORDS)
-            ed_size_x = _ed_coord[2]-_ed_coord[0]
-            ed_size_y = _ed_coord[3]-_ed_coord[1]
-            hint_x = pos[0]
-            hint_y = pos[1] + _cell_size[1] #+ gap_out
+            top_hint = pos[1]-t > b-pos[1] # space up is larger than down
+            y0,y1 = (t, pos[1])  if top_hint else  (pos[1], b)
+            h = min(FORM_H,  y1-y0 - FORM_GAP*2 - cell_h)
+            w = min(FORM_W, ed_size_x)
 
-            #no space on bottom?
-            if hint_y + form_h > ed_size_y:
-                hint_y = pos[1] - form_h #- gap_out
+            x = pos[0] - int(w*0.5) # center over caret
+            if x < l: # dont fit on left
+                x = l + FORM_GAP
+            elif x+w > r: # dont fit on right
+                x = r - w - FORM_GAP
 
-            #no space on right?
-            if hint_x + form_w > ed_size_x:
-                hint_x = ed_size_x - form_w
+            y = (pos[1] - (h + cell_h + FORM_GAP))  if top_hint else  (pos[1] + cell_h + FORM_GAP)
+
+            print(f'caret:{pos}; top_hint:{top_hint}  x,y,w,h: {x,y,w,h}')
 
             dlg_proc(cls.h, ct.DLG_PROP_SET, prop={
                     'p': ed.get_prop(ct.PROP_HANDLE_SELF ), #set parent to Editor handle
-                    'x': hint_x,
-                    'y': hint_y,
+                    'x': x,
+                    'y': y,
+                    'w': w,
+                    'h': h,
                     })
         #end if
         # first - large delay, after - smaller
