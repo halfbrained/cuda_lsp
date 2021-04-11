@@ -211,7 +211,7 @@ class Command:
             lang.on_snippet(ed_self, snippet_id, snippet_text)
 
     def on_mouse_stop(self, ed_self, x, y):
-        if Hint.is_visible():
+        if Hint.is_under_cursor():
             return
 
         if not opt_enable_mouse_hover:

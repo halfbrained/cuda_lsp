@@ -154,3 +154,6 @@ class Hint:
             return False
         return dlg_proc(cls.h, ct.DLG_PROP_GET)['vis']
 
+    @classmethod
+    def is_under_cursor(cls):
+        return cls.is_visible()  and  is_mouse_in_form(cls.h)
