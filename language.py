@@ -182,7 +182,7 @@ class Language:
                     headers, header_bytes = parse_headers(self._reader)  # type: ignore
                 except Exception as ex:
                     print(f'{LOG_NAME}: {self.lang_str} - header parse error: {ex}')
-                    traceback.print_exc()
+                    pass;       LOG and traceback.print_exc()
                     continue
 
                 if header_bytes == b'':
@@ -196,7 +196,7 @@ class Language:
                     self._read_q.put(header_bytes + body)
                 except Exception as ex:
                     print(f'BodyReadError: {LOG_NAME}: {self.lang_str} - decode error {ex}')
-                    traceback.print_exc()
+                    pass;       LOG and traceback.print_exc()
                 finally:
                     del body
                     del headers
@@ -306,7 +306,7 @@ class Language:
                 self._send_q.put(send_buf)
         except Exception as ex:
             print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
-            traceback.print_exc()
+            pass;       LOG and traceback.print_exc()
 
     def send_changes(self, eddoc):
         if not self.client.is_initialized:
