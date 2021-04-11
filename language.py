@@ -432,7 +432,7 @@ class Language:
         if isinstance(items, list):
             targets = [link_to_target(item) for item in items]
             targets = [(uri_to_path(uri),range_) for uri,range_ in targets] # uri to path
-            names = [f'{os.path.basename(path)}, Line {range_.start.line+1}\t{collapse_path(path)}'
+            names = [f'{os.path.basename(path)}, line {range_.start.line+1}\t{collapse_path(path)}'
                         for path,range_ in targets]
             ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
             if ind is None:
