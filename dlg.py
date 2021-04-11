@@ -116,8 +116,6 @@ class Hint:
 
             y = (pos[1] - (h + cell_h + FORM_GAP))  if top_hint else  (pos[1] + cell_h + FORM_GAP)
 
-            print(f'caret:{pos}; top_hint:{top_hint}  x,y,w,h: {x,y,w,h}')
-
             dlg_proc(cls.h, ct.DLG_PROP_SET, prop={
                     'p': ed.get_prop(ct.PROP_HANDLE_SELF ), #set parent to Editor handle
                     'x': x,

@@ -15,7 +15,15 @@ from cudatext import *
 import cudax_lib as appx
 #from cudax_lib import get_translation
 
-from .util import get_first, ed_uri, get_visible_eds, uri_to_path, path_to_uri, langid2name
+from .util import (
+        get_first,
+        ed_uri,
+        get_visible_eds,
+        uri_to_path,
+        path_to_uri,
+        langid2name,
+        collapse_path,
+    )
 from .dlg import Hint
 
 from .sansio_lsp_client import client as lsp
@@ -423,8 +431,9 @@ class Language:
 
         if isinstance(items, list):
             targets = [link_to_target(item) for item in items]
-            names = [f'{os.path.basename(uri_to_path(uri))}\tLine: {range_.start.line+1}'
-                        for uri,range_ in targets]
+            targets = [(uri_to_path(uri),range_) for uri,range_ in targets] # uri to path
+            names = [f'{os.path.basename(path)}, Line {range_.start.line+1}\t{collapse_path(path)}'
+                        for path,range_ in targets]
             ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
             if ind is None:
                 return

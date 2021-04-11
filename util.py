@@ -1,7 +1,10 @@
+import os
 import pathlib
 from urllib.parse import unquote, urlparse
 
 import cudatext as ct
+
+USER_DIR = os.path.expanduser('~')
 
 def get_first(gen):
     try:
@@ -48,6 +51,11 @@ def ed_uri(ed):
 
 def uri_to_path(uri):
     return unquote(urlparse(uri).path)
+
+def collapse_path(path):
+    if (path + os.sep).startswith(USER_DIR + os.sep):
+        path = path.replace(USER_DIR, '~', 1)
+    return path
 
 # https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
 lang_ids = {
