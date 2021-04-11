@@ -20,6 +20,7 @@ import traceback
 import datetime
 
 LOG = False
+LOG_NAME = 'LSP'
 
 fn_config = os.path.join(app_path(APP_DIR_SETTINGS), 'cuda_lsp.json')
 #fn_config_servers = os.path.join(app_path(APP_DIR_SETTINGS), 'cuda_lsp_servers.json')
@@ -42,6 +43,7 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 
 #TODO
 * python server scans unncesasry files
+* print server stderr to Output panel
 
 * ! kill css server properly
 
@@ -432,7 +434,7 @@ class Command:
             if _opt_root_dir_source in [0, 1]:
                 opt_root_dir_source = _opt_root_dir_source
             else:
-                print(f'NOTE: invalid value of option "root_dir_source"'
+                print(f'NOTE:{LOG_NAME}: invalid value of option "root_dir_source"'
                         +f' in {fn_config}, should be "0" or "1"')
 
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
@@ -451,7 +453,7 @@ class Command:
                     try:
                         j = json.load(f)
                     except:
-                        print(f'NOTE: failed to load server config: {path}')
+                        print(f'NOTE:{LOG_NAME}: failed to load server config: {path}')
                         continue
 
                 if 'name' not in j:
@@ -459,7 +461,7 @@ class Command:
                 servers_cfgs.append(j)
 
         if not servers_cfgs:
-            print(f'NOTE: no server configs was found in "{dir_server_configs}"')
+            print(f'NOTE:{LOG_NAME}: no server configs was found in "{dir_server_configs}"')
 
 
 

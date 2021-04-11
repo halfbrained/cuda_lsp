@@ -45,6 +45,7 @@ import datetime
 
 print_server_errors = False
 LOG = False
+LOG_NAME = 'LSP'
 
 SNIP_ID = 'cuda_lsp__snip'
 
@@ -65,12 +66,14 @@ class Language:
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self.name = cfg['name']
         self.langids = cfg['langids']
+        self.lang_str = ', '.join([langid2name(lid) for lid in self.langids])
+        self.name = cfg['name'] # "name" from config or config filename (internal)
 
         self._server_cmd = cfg.get('cmd')
         self._tcp_port = cfg.get('tcp_port') # None => use Popen
         self._work_dir = cfg.get('work_dir')
+
 
         # expand user in server start cmd
         if isinstance(self._server_cmd, list):
@@ -93,7 +96,7 @@ class Language:
         self._dbg_bmsgs = []
 
     def __str__(self):
-        return f'Lang:{self.name}'
+        return f'Lang:{self.lang_str}'
 
     @property
     def client(self):
@@ -117,11 +120,11 @@ class Language:
     def _start_server(self):
         # if config has tcp port - connetct to it
         if self._tcp_port and type(self._tcp_port) == int:
-            print(f'Connecting via TCP, port: {self._tcp_port}')
+            print(f'{LOG_NAME}: {self.lang_str} - connecting via TCP, port: {self._tcp_port}')
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                print("NOTE: {} - Failed to connect on port {}".format(self.name, config.tcp_port))
+                print(f'NOTE:{LOG_NAME}: {self.lang_str} - Failed to connect on port {self.tcp_port}')
                 return
 
             self._reader = self.sock.makefile('rwb')  # type: ignore
@@ -138,8 +141,8 @@ class Language:
                     #env=,
                 )
             except Exception as ex:
-                print(f'NOTE: {self.name} - Failed to create process, command: {self._server_cmd};'
-                        +f' Error: {ex}')
+                print(f'NOTE:{LOG_NAME}: {self.lang_str} - Failed to create process, command:'
+                        +f' {self._server_cmd}; Error: {ex}')
                 return
 
             self._reader = self.process.stdout
@@ -158,8 +161,7 @@ class Language:
 
         timer_proc(TIMER_START, self.process_queues, 100, tag='')
 
-        langid_names = ', '.join([langid2name(lid) for lid in self.langids])
-        print(f'Started LSP server: {langid_names}')
+        print(f'{LOG_NAME}: Started server: {self.lang_str}')
 
     def _err_read_loop(self):
         try:
@@ -167,9 +169,9 @@ class Language:
                 line = self._err.readline()
                 if line == b'':
                     break
-                print(f'ServerError: {line}') # bytes
+                print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
         except Exception as ex:
-            print("ErrException: ? " + str(ex))
+            print(f'ErrReadException: {LOG_NAME}: {self.lang_str} - {ex}')
         pass;       LOG and print(f'NOTE: err reader exited')
 
 
@@ -179,7 +181,7 @@ class Language:
                 try:
                     headers, header_bytes = parse_headers(self._reader)  # type: ignore
                 except Exception as ex:
-                    print("header parse err:" + str(ex))
+                    print(f'{LOG_NAME}: {self.lang_str} - header parse error: {ex}')
                     traceback.print_exc()
                     continue
 
@@ -193,7 +195,7 @@ class Language:
                     body = self._reader.read(int(headers.get("Content-Length")))
                     self._read_q.put(header_bytes + body)
                 except Exception as ex:
-                    print("JSONError: decode error" + str(ex))
+                    print(f'BodyReadError: {LOG_NAME}: {self.lang_str} - decode error {ex}')
                     traceback.print_exc()
                 finally:
                     del body
@@ -202,7 +204,7 @@ class Language:
         #except (AttributeError, BrokenPipeError, TypeError) as ex:
             #print("ExpectedException: ? " + str(ex))
         except Exception as ex:
-            print("UnexpectedException: ? " + str(ex))
+            print(f'ReadLoopError: {LOG_NAME}: {self.lang_str} - {ex}')
         self._send_q.put_nowait(None) # stop send_loop()
 
     def _send_loop(self):
@@ -279,13 +281,13 @@ class Language:
                 app_log(LOG_ADD, line, panel=LOG_PANEL_OUTPUT)
 
         elif msgtype == events.Shutdown:
-            print('* got shutdown response, exiting')
+            print(f'{LOG_NAME}: {self.lang_str} - got shutdown response, exiting')
             self.client.exit()
             self.process_queues()
             self.exit()
 
         else:
-            print(f'Unknown Message type: {msgtype}')
+            print(f'{LOG_NAME}: {self.lang_str} - unknown Message type: {msgtype}')
 
 
     #NOTE call immediately after adding send events, to send faster
@@ -303,7 +305,7 @@ class Language:
             if send_buf:
                 self._send_q.put(send_buf)
         except Exception as ex:
-            print(f'QueuesProcessingError: {ex}')
+            print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
             traceback.print_exc()
 
     def send_changes(self, eddoc):
@@ -759,7 +761,7 @@ class ServerConfig:
                     return registration.registerOptions
 
         if method_name != METHOD_DID_OPEN:
-            print(f'NOTE: -- ! unsupported method: {method_name}, {ed_self} [langid:{langid}, fn:{ed_self.get_filename}]')
+            print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
 
 
     # "selector is one ore more filters"

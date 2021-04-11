@@ -351,7 +351,7 @@ class Client:
                 else:
                     raise RuntimeError("nobody will ever see this, i hope")
             except Exception as ex:
-                print(f'RecvError: client.recv: {ex}:.........{message}')
+                print(f'RecvError: LSP: client.recv: {ex}:.........{message}')
 
         return events
 
