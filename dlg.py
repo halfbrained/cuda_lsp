@@ -57,6 +57,8 @@ class Hint:
         # Editor.set_text_all() doesn't clutter edit history, so no unnecessary stuff is stored in RAM
         ed = ct.Editor(h_ed)
 
+        ed.set_prop(ct.PROP_GUTTER_ALL, False)
+
         cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
 
         return h, ed
