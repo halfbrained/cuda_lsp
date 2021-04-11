@@ -16,9 +16,6 @@ from .dlg import Hint
 
 #_   = get_translation(__file__)  # I18N
 
-import traceback
-import datetime
-
 LOG = False
 LOG_NAME = 'LSP'
 
@@ -232,6 +229,8 @@ class Command:
             doc.lang.request_sighelp(doc)
             return ''
 
+    def on_goto_def(self, ed_self):
+        self.call_definition(ed_self)
 
     def on_tab_change(self, ed_self):
         doc = self._book.get_doc(ed_self)
@@ -310,8 +309,9 @@ class Command:
         if doc and doc.lang:
             doc.lang.on_hover(doc)
 
-    def call_definition(self):
-        doc = self._book.get_doc(ed)
+    def call_definition(self, ed_self=None):
+        ed_self = ed_self or ed
+        doc = self._book.get_doc(ed_self)
         if doc and doc.lang:
             doc.lang.request_definition_loc(doc)
 

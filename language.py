@@ -229,7 +229,7 @@ class Language:
         msgtype = type(msg)
 
         if msgtype == events.Initialized:
-            self.scfg = ServerConfig(msg, self.langids)
+            self.scfg = ServerConfig(msg, self.langids, self.lang_str)
             app_proc(PROC_EXEC_PLUGIN, 'cuda_lsp,on_lang_inited,'+self.name)
 
         elif msgtype == events.RegisterCapabilityRequest:
@@ -263,7 +263,8 @@ class Language:
 
         #GOTOs
         elif msgtype in GOTO_EVENT_TYPES:
-            self.do_goto(items=msg.result, dlg_caption=f'Go to {msgtype.__name__}')
+            skip_dlg = msgtype == events.Definition
+            self.do_goto(items=msg.result, dlg_caption=f'Go to {msgtype.__name__}', skip_dlg=skip_dlg)
 
         elif msgtype == events.MDocumentSymbols:
             self.show_symbols(msg.result)
@@ -415,7 +416,7 @@ class Language:
         if id is not None:
             self._save_req_pos(id=id, mouse_caret=pos)
 
-    def do_goto(self, items, dlg_caption):
+    def do_goto(self, items, dlg_caption, skip_dlg=False):
         """ items: Location or t.List[t.Union[Location, LocationLink]], None
         """
         def link_to_target(link): #SKIP
@@ -429,17 +430,24 @@ class Language:
                 raise Exception('Invalid goto-link type: '+str(type(link)))
 
         if not items:
+            msg_status(f'{LOG_NAME}: {self.lang_str} - no results for "{dlg_caption}"')
             return
 
         if isinstance(items, list):
-            targets = [link_to_target(item) for item in items]
-            targets = [(uri_to_path(uri),range_) for uri,range_ in targets] # uri to path
-            names = [f'{os.path.basename(path)}, line {range_.start.line+1}\t{collapse_path(path)}'
-                        for path,range_ in targets]
-            ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
-            if ind is None:
-                return
-            uri,targetrange = targets[ind]
+            targets = (link_to_target(item) for item in items)
+            targets = ((uri_to_path(uri),range_) for uri,range_ in targets) # uri to path
+
+            if skip_dlg:
+                uri,targetrange = next(targets) # first
+            else:
+                targets = list(targets)
+                names = [f'{os.path.basename(path)}, line {range_.start.line+1}\t{collapse_path(path)}'
+                            for path,range_ in targets]
+                ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
+                if ind is None:
+                    return
+                uri,targetrange = targets[ind]
+
         else: # items is single item
             uri,targetrange = link_to_target(items)
 
@@ -696,9 +704,10 @@ METHOD_PROVIDERS = {
 
 
 class ServerConfig:
-    def __init__(self, initialized, langids):
+    def __init__(self, initialized, langids, lang_str):
         capabilities = initialized.capabilities
         self.capabs = [] # struct.Registration
+        self.lang_str = lang_str
 
         _default_selector = [{'language': langid}  for langid in langids]
         _default_opts = {'documentSelector': _default_selector}

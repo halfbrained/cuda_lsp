@@ -11,7 +11,7 @@ events=on_open,on_save,on_close,on_tab_change
 
 [item3]
 section=events
-events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
+events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint,on_goto_def
 
 [item4]
 section=events
