@@ -866,8 +866,8 @@ class CompletionMan:
             x2 = x0+len(word2)
             y1 = y2 = y0
 
-            if (item.insertText  and  item.insertTextFormat
-                    and item.insertTextFormat == InsertTextFormat.PLAIN_TEXT):
+            if (item.insertText  and
+                    (item.insertTextFormat is None or item.insertTextFormat != InsertTextFormat.SNIPPET)):
                 text = item.insertText
             else:
                 text = item.label
