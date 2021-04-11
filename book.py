@@ -90,8 +90,8 @@ class EditorDoc:
         oldtxt,  self._txt  =  self._txt,  self.get_text_all()
         if oldtxt == self._txt:     return []
 
-        oldspl = oldtxt.split('\n')
-        newspl = self._txt.split('\n')
+        oldspl = oldtxt.splitlines(keepends=True)
+        newspl = self._txt.splitlines(keepends=True)
         # matches example: [Match(a=0, b=0, size=4), Match(a=4, b=5, size=0)]
         matches = SequenceMatcher(a=oldspl, b=newspl).get_matching_blocks()
 
@@ -111,7 +111,7 @@ class EditorDoc:
                     start = structs.Position(line=ib, character=0)
                     end = start # ...
                     _range = structs.Range(start=start, end=end)
-                    _change_str = '\n'.join(newspl[ib:match.b]) + '\n'
+                    _change_str = ''.join(newspl[ib:match.b])
                     change_ev = structs.TextDocumentContentChangeEvent(text=_change_str, range=_range)
                     changes.append(change_ev)
                 else:
@@ -128,7 +128,7 @@ class EditorDoc:
                     start = structs.Position(line=ia, character=0)
                     end = structs.Position(line=match.a-1, character=len(oldspl[match.a-1]))
                     _range = structs.Range(start=start, end=end)
-                    _change_str = '\n'.join(newspl[ib:match.b]) + '\n'
+                    _change_str = ''.join(newspl[ib:match.b])
                     change_ev = structs.TextDocumentContentChangeEvent(text=_change_str, range=_range)
                     changes.append(change_ev)
                 else:
