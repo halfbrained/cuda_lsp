@@ -443,6 +443,7 @@ class Language:
 
         targetpath = uri_to_path(uri)
         file_open(targetpath)
+        app_idle(True) # fixes editor not scrolled to caret
         ed.set_caret(targetrange.start.character, targetrange.start.line) # goto specified position start
         ed.set_prop(PROP_LINE_TOP, max(0, targetrange.start.line-3))
 
