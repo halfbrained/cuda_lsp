@@ -32,7 +32,6 @@ opt_send_change_on_request = False
 # to close - change lexer (then back)
 opt_manual_didopen = False # debug help "manual_didopen"
 
-
 """
 file:///install.inf
 file:///book.py
@@ -42,25 +41,14 @@ file:///util.py
 https://microsoft.github.io/language-server-protocol/specifications/specification-current/#exit
 
 #TODO
-- fix hover popup
-- dont show empty popups
-- option disable hover (only by command)
-- check CompletionMan.do_complete()
-- project tie (.opt_root_dir_source)
-- manual didOpen+didClose
-- add markdown to capabilities
-- caret completion on complete
-- handle changing lexer by saving
-- hover dialog colors
-- only allow didOpen for docs without lang
-- clean commands (install.inf)
-- shutdown server for C++   +   multiple items
-
-* clear prints
-* json config with comments + data folder
+* python server scans unncesasry files
 
 * ! kill css server properly
 
+#TODOC
+* server root uri
+* config tcp port
+* commands + options
 
 #TODO later (random order)
 * add status messages
@@ -455,6 +443,9 @@ class Command:
         # servers
         if os.path.exists(dir_server_configs):
             for name in os.listdir(dir_server_configs):
+                if not name.lower().endswith('.json'):
+                    continue
+
                 path = os.path.join(dir_server_configs, name)
                 with open(path, 'r', encoding='utf-8') as f:
                     try:
