@@ -103,24 +103,33 @@ class Language:
 
 
     def _start_server(self):
+        # if config has tcp port - connetct to it
         if self._tcp_port and type(self._tcp_port) == int:
             print(f'Connecting via TCP, port: {self._tcp_port}')
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                raise RuntimeError("Failed to connect on port {}".format(config.tcp_port))
+                print("NOTE: {} - Failed to connect on port {}".format(self.name, config.tcp_port))
+                return
+
             self._reader = self.sock.makefile('rwb')  # type: ignore
             self._writer = self._reader
-
+        # not port - create stdio-process
         else:
-            self.process = subprocess.Popen(
-                args=self._server_cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=self._work_dir,
-                #env=,
-            )
+            try:
+                self.process = subprocess.Popen(
+                    args=self._server_cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=self._work_dir,
+                    #env=,
+                )
+            except Exception as ex:
+                print(f'NOTE: {self.name} - Failed to create process, command: {self._server_cmd};'
+                        +f' Error: {ex}')
+                return
+
             self._reader = self.process.stdout
             self._writer = self.process.stdin
             self._err = self.process.stderr
