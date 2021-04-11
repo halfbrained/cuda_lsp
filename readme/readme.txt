@@ -13,7 +13,7 @@ Basic config for a python LSP server "pyls" would look like this:
     "cmd": ["pyls"]
 }
 
-Name of the file is not important.
+Extension of files should be '.json'
 
 * List of language identifiers can be seen here:
 https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
