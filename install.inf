@@ -20,75 +20,75 @@ events=on_exit
 
 [item21]
 section=commands
-caption=LSP\Hover
+caption=LSP Client\Hover
 method=call_hover
 
 [item23]
 section=commands
-caption=LSP\Definition
+caption=LSP Client\Definition
 method=call_definition
 
 [item24]
 section=commands
-caption=LSP\References
+caption=LSP Client\References
 method=call_references
 
 [item25]
 section=commands
-caption=LSP\Implementation
+caption=LSP Client\Implementation
 method=call_implementation
 
 [item26]
 section=commands
-caption=LSP\Declaration
+caption=LSP Client\Declaration
 method=call_declaration
 
 [item27]
 section=commands
-caption=LSP\Type definition
+caption=LSP Client\Type definition
 method=call_typedef
 
 
 ;[item30]
 ;section=commands
-;caption=LSP\-
+;caption=LSP Client\-
 ;method=_
 
 ;[item31]
 ;section=commands
-;caption=LSP\Workspace symbols (broken)
+;caption=LSP Client\Workspace symbols (broken)
 ;method=dbg_workspace_symbols
 
 ;[item32]
 ;section=commands
-;caption=LSP\Call hierarchy (broken)
+;caption=LSP Client\Call hierarchy (broken)
 ;method=dbg_call_hierarchy_in
 
 
 [item40]
 section=commands
-caption=LSP\-
+caption=LSP Client\-
 method=_
 
 [item41]
 section=commands
-caption=LSP\Shutdown server...
+caption=LSP Client\Shutdown server...
 method=shutdown_server
 
 [item42]
 section=commands
-caption=LSP\Debug: Docs list...
+caption=LSP Client\Debug: Docs list...
 method=dbg_show_docs
 
 [item43]
 section=commands
-caption=LSP\Debug: view server responses (current server)
+caption=LSP Client\Debug: view server responses (current server)
 method=dbg_show_msg
 
 
 
 [item60]
 section=commands
-caption=LSP\Config
+caption=LSP Client\Config
 method=config
 menu=o
