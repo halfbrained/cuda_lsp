@@ -441,8 +441,9 @@ class Language:
                 uri,targetrange = next(targets) # first
             else:
                 targets = list(targets)
-                names = [f'{os.path.basename(path)}, line {range_.start.line+1}\t{collapse_path(path)}'
-                            for path,range_ in targets]
+                # ((dir,filename), line)
+                names = ((os.path.split(path), range_.start.line+1)  for path,range_ in targets)
+                names = [f'{fn}, line {nline}\t{collapse_path(folder)}' for (folder,fn),nline in names]
                 ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
                 if ind is None:
                     return
