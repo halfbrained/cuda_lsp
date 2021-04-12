@@ -3,7 +3,8 @@ import time
 import json
 
 import sys
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+_plugin_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(_plugin_dir, 'lsp_modules'))
 
 from cudatext import *
 from cudax_lib import _json_loads #, get_translation

@@ -9,7 +9,7 @@ from collections import namedtuple, defaultdict
 import email.parser
 import email.message
 
-from .wcmatch.glob import globmatch, GLOBSTAR, BRACE
+from wcmatch.glob import globmatch, GLOBSTAR, BRACE
 
 from cudatext import *
 import cudax_lib as appx
