@@ -63,6 +63,8 @@ class Hint:
         ed = ct.Editor(h_ed)
 
         ed.set_prop(ct.PROP_GUTTER_ALL, False)
+        ed.set_prop(ct.PROP_MINIMAP, False)
+        ed.set_prop(ct.PROP_MICROMAP, False)
 
         cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
 
@@ -87,6 +89,7 @@ class Hint:
 
         cls.ed.set_text_all(text)
         cls.ed.set_prop(ct.PROP_LINE_TOP, 0)
+        cls.ed.set_prop(ct.PROP_SCROLL_HORZ, 0)
 
         if markupkind == MarkupKind.MARKDOWN:
             cls.ed.set_prop(ct.PROP_LEXER_FILE, 'Markdown')
@@ -142,6 +145,8 @@ class Hint:
             cls.ed.set_prop(ct.PROP_RO, False)
             cls.ed.set_text_all('')
             dlg_proc(cls.h, ct.DLG_HIDE)
+
+            ed.focus()
 
         if tag == 'initial': # give some time to move mouse to dialog
             ct.timer_proc(ct.TIMER_START, Hint.hide_check_timer, 250, tag='')
