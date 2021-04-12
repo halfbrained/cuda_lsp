@@ -83,7 +83,6 @@ class Hint:
         scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
         cls.cursor_margin = 15 * scale_UI_percent*0.01 # 15px scaled
 
-
         cls.ed.set_prop(ct.PROP_RO, False)
 
         cls.ed.set_text_all(text)
@@ -97,11 +96,16 @@ class Hint:
         cls.ed.set_prop(ct.PROP_RO, True)
 
         if caret is not None:
+            pos = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
+
+            # dont show dialog if cursor moved from request-position
+            _glob_cursor = ed.convert(ct.CONVERT_LOCAL_TO_SCREEN, *pos)
+            if pos is None  or  cursor_dist(_glob_cursor) > cls.cursor_margin:
+                return
 
             l,t,r,b = ed.get_prop(ct.PROP_RECT_TEXT) # l,t,r,b
             cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
             ed_size_x = r - l # text area sizes - to not obscure other ed-controls
-            pos = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
 
             top_hint = pos[1]-t > b-pos[1] # space up is larger than down
             y0,y1 = (t, pos[1])  if top_hint else  (pos[1], b)
