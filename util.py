@@ -19,17 +19,16 @@ def get_first(gen):
     return None
 
 def lex2langid(lex):
-    return lang_ids.get(lex)
+    return lex_ids.get(lex)
 
-def langid2name(langid_):
-    for name,langid in lang_ids.items():
+def langid2lex(langid_):
+    for name,langid in lex_ids.items():
         if langid == langid_:
             return name
 
 def is_ed_visible(ed):
-    h = ed.get_prop(ct.PROP_HANDLE_SELF)
-    eds = (ct.ed_group(i) for i in range(8))
-    return any(h == gred.get_prop(ct.PROP_HANDLE_SELF)  for gred in eds  if gred is not None)
+    gr_ed = ct.ed_group(ed.get_prop(ct.PROP_INDEX_GROUP))
+    return ed == gr_ed
 
 def get_visible_eds():
     for i in range(8):
@@ -57,14 +56,14 @@ def collapse_path(path):
         path = path.replace(USER_DIR, '~', 1)
     return path
 
+
 # https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
-lang_ids = {
+lex_ids = {
     'ABAP': 'abap',
-    'Windows Bat': 'bat',
-    'Batch files': 'bat',
+    'Batch files': 'bat', # spec: 'Windows Bat'
     'BibTeX': 'bibtex',
     'Clojure': 'clojure',
-    'Coffeescript': 'coffeescript',
+    'CoffeeScript': 'coffeescript', # spec: 'Coffeescript'
     'C': 'c',
     'C++': 'cpp',
     'C#': 'csharp',
@@ -78,42 +77,41 @@ lang_ids = {
     #'Git': 'git-commit and git-rebase', #TODO
     'Go': 'go',
     'Groovy': 'groovy',
-    'Handlebars': 'handlebars',
+    'HTML Handlebars': 'handlebars', # spec: 'Handlebars'
     'HTML': 'html',
-    'Ini': 'ini',
+    'Ini files': 'ini', # spec: 'Ini'
     'Java': 'java',
     'JavaScript': 'javascript',
-    'JavaScript React': 'javascriptreact',
+    #'JavaScript React': 'javascriptreact', # Not in CudaText
     'JSON': 'json',
     'LaTeX': 'latex',
-    'Less': 'less',
+    'LESS': 'less', # spec: 'Less'
     'Lua': 'lua',
     'Makefile': 'makefile',
     'Markdown': 'markdown',
     'Objective-C': 'objective-c',
-    'Objective-C++': 'objective-cpp',
+    #'Objective-C++': 'objective-cpp', # Not in CudaText
     'Perl': 'perl',
-    'Perl 6': 'perl6',
+    #'Perl 6': 'perl6', # Not in CudaText
     'PHP': 'php',
-    'Powershell': 'powershell',
+    'PowerShell': 'powershell', # spec: 'Powershell'
     'Pug': 'jade',
     'Python': 'python',
     'R': 'r',
-    'Razor (cshtml)': 'razor',
+    'Razor': 'razor', # spec: 'Razor (cshtml)'
     'Ruby': 'ruby',
     'Rust': 'rust',
     #'SCSS': 'scss (syntax using curly brackets), sass (indented syntax)', #TODO
     'Scala': 'scala',
-    'ShaderLab': 'shaderlab',
-    'Shell Script (Bash)': 'shellscript',
-    'Bash script': 'shellscript',
+    #'ShaderLab': 'shaderlab', # not in CudaText
+    'Bash script': 'shellscript', # spec: 'Shell Script (Bash)'
     'SQL': 'sql',
     'Swift': 'swift',
     'TypeScript': 'typescript',
-    'TypeScript React': 'typescriptreact',
-    'TeX': 'tex',
-    'Visual Basic': 'vb',
+    #'TypeScript React': 'typescriptreact', # Not in CudaText
+    #'TeX': 'tex', # Not in CudaText
+    #'Visual Basic': 'vb', # Not in CudaText
     'XML': 'xml',
-    'XSL': 'xsl',
+    'XSLT': 'xsl', # spec: 'XSL'
     'YAML': 'yaml',
 }

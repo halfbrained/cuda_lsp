@@ -21,7 +21,7 @@ from .util import (
         get_visible_eds,
         uri_to_path,
         path_to_uri,
-        langid2name,
+        langid2lex,
         collapse_path,
     )
 from .dlg import Hint
@@ -36,6 +36,7 @@ from .sansio_lsp_client.structs import (
         Location,
         LocationLink,
         DocumentSymbol,
+        CompletionItemKind,
     )
 
 #_   = get_translation(__file__)  # I18N
@@ -52,11 +53,17 @@ SNIP_ID = 'cuda_lsp__snip'
 TCP_CONNECT_TIMEOUT = 5 # sec
 
 GOTO_EVENT_TYPES = {
-    events.Definition: '',
-    events.References: '',
-    events.Implementation: '',
-    events.TypeDefinition: '',
-    events.Declaration: '',
+    events.Definition,
+    events.References,
+    events.Implementation,
+    events.TypeDefinition,
+    events.Declaration,
+}
+CALLABLE_COMPLETIONS = {
+    CompletionItemKind.METHOD,
+    CompletionItemKind.FUNCTION,
+    CompletionItemKind.CONSTRUCTOR,
+    CompletionItemKind.CLASS,
 }
 
 RequestPos = namedtuple('RequestPos', 'h_ed carets mouse_caret')
@@ -67,7 +74,7 @@ class Language:
         self._cfg = cfg
 
         self.langids = cfg['langids']
-        self.lang_str = ', '.join([langid2name(lid) for lid in self.langids])
+        self.lang_str = ', '.join([langid2lex(lid) for lid in self.langids])
         self.name = cfg['name'] # "name" from config or config filename (internal)
 
         self._server_cmd = cfg.get('cmd')
@@ -251,7 +258,7 @@ class Language:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
-                    Hint.show(msg.m_str(), caret=_reqpos.mouse_caret) # msg has .range, .contents
+                    Hint.show(msg.m_str(), caret=_reqpos.mouse_caret)
 
         elif msgtype == events.SignatureHelp:
             if msg.message_id in self.request_positions:
@@ -492,8 +499,8 @@ class Language:
         if id is not None:
             self._save_req_pos(id=id, mouse_caret=pos)
 
-    def request_definition_loc(self, eddoc):
-        id, pos = self._action_by_name(METHOD_DEFINITION, eddoc)
+    def request_definition_loc(self, eddoc, x=None, y=None):
+        id, pos = self._action_by_name(METHOD_DEFINITION, eddoc, x=x, y=y)
         if id is not None:
             self._save_req_pos(id=id, mouse_caret=pos)
 
@@ -873,11 +880,16 @@ class CompletionMan:
             else:
                 text = item.label
 
+        is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
         # main edit
-        new_caret = ed.replace(x1,y1,x2,y2, text)
-        # move caret at end of inserted text
+        new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if is_callable else ''))
+        # move caret at ~end of inserted text
         if new_caret:
-            ed.set_caret(*new_caret)
+            if not is_callable:
+                ed.set_caret(*new_caret)
+            else:
+                ed.set_caret(new_caret[0] - 1,  new_caret[1])
+
 
         # additinal edits
         if item.additionalTextEdits:

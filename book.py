@@ -6,9 +6,7 @@ from cudatext import *
 
 from .util import get_first, lex2langid, ed_uri
 
-from .sansio_lsp_client import client as lsp
-from .sansio_lsp_client import structs
-from .sansio_lsp_client import events
+#from .sansio_lsp_client import structs
 
 #_   = get_translation(__file__)  # I18N
 
@@ -21,6 +19,9 @@ class DocBook:
         self.docs = {} # uri => Document
 
     def new_doc(self, ed):
+        global structs
+        from .sansio_lsp_client import structs
+
         doc = EditorDoc(ed)
         self.docs[doc.uri] = doc
 

@@ -10,10 +10,12 @@ from cudatext import *
 from cudax_lib import _json_loads #, get_translation
 import cuda_project_man
 
-from .language import Language
-from .book import DocBook, EditorDoc
+from .book import DocBook
 from .util import lex2langid, ed_uri, is_ed_visible
-from .dlg import Hint
+
+# imported on access
+#from .language import Language
+#from .dlg import Hint
 
 #_   = get_translation(__file__)  # I18N
 
@@ -42,6 +44,8 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 #TODO
 * python server scans unncesasry files
 * print server stderr to Output panel
+* test hover with OS scaled
+* handle lite lexers
 
 * ! kill css server properly
 
@@ -103,6 +107,9 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 class Command:
 
     def __init__(self):
+        self.is_loading_sesh = False
+        # editors not on_open'ed durisg sesh-load;  on_open visibles when sesh loaded
+        self._sesh_eds = []
         self._langs = {} # langid -> Language
         self._book = DocBook()
 
@@ -121,13 +128,19 @@ class Command:
 
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
+        if not self.is_loading_sesh:
+            self._do_on_open(ed_self)
+        else: # sesh is loading - delay
+            self._sesh_eds.append(ed_self)
+
+    def _do_on_open(self, ed_self):
         """ Creates 'doc' only if 'ed' is visible
                 (to not didOpen all opened files at start)
             * on new capability - only visible 'ed's are 'didOpen'-ed
             * ? tab change
             (updates existing doc when needed)
         """
-        if opt_manual_didopen:
+        if opt_manual_didopen  or  not is_ed_visible(ed_self):
             return
 
         doc = self._book.get_doc(ed_self) # get existing
@@ -138,6 +151,7 @@ class Command:
             if doc:
                 doc.update()
             return
+
 
         lang = self._get_lang(ed_self, langid) # uses dynamic server registrationed
         pass;       LOG and print(f'on_open: lex, langid, filename:{lex, langid, ed_self.get_filename()} =>> lang:{lang.name if lang else "none"}')
@@ -212,6 +226,9 @@ class Command:
             lang.on_snippet(ed_self, snippet_id, snippet_text)
 
     def on_mouse_stop(self, ed_self, x, y):
+        global Hint
+        from .dlg import Hint
+
         if Hint.is_under_cursor():
             return
 
@@ -255,6 +272,19 @@ class Command:
         else:
             raise Exception('Coulnt find initted lang: '+str(name))
 
+    def on_state(self, ed_self, state):
+        if state == APPSTATE_SESSION_LOAD_BEGIN: # started
+            self.is_loading_sesh = True
+
+        elif state in [APPSTATE_SESSION_LOAD_FAIL, APPSTATE_SESSION_LOAD]: # ended
+            self.is_loading_sesh = False
+            # on_open for delayed
+            eds = self._sesh_eds[:]
+            self._sesh_eds.clear()
+            for editor in eds:
+                self._do_on_open(editor)
+
+
     def on_exit(self, *args, **vargs):
         # start servers shutdown
         for langid,lang in self._langs.items():
@@ -286,6 +316,8 @@ class Command:
             # no server exists for this langid, try to create
             for cfg in servers_cfgs:
                 if langid in cfg.get('langids', []):
+                    from .language import Language
+
                     # choose root directory for server: .opt_root_dir_source
                     work_dir = None
                     if opt_root_dir_source == 0: # project file dir
@@ -418,6 +450,19 @@ class Command:
         lang.on_open(doc)
         doc.update(lang=lang)
 
+    def caret_definition(self, caret_str):
+        """ caret_str: string - '3|39' - caretx|carety
+        """
+        ed_self = Editor(ed.get_prop(PROP_HANDLE_SELF))
+
+        caret = list(map(int, caret_str.split('|')))
+        caret_px = ed_self.convert(CONVERT_CARET_TO_PIXELS, *caret)
+        if caret_px:
+            x,y = caret_px
+            doc = self._book.get_doc(ed_self)
+            if doc and doc.lang:
+                doc.lang.request_definition_loc(doc, x=x, y=y)
+
     def _load_config(self):
         global opt_enable_mouse_hover
         global opt_root_dir_source
@@ -445,10 +490,9 @@ class Command:
 
         # servers
         if os.path.exists(dir_server_configs):
-            for name in os.listdir(dir_server_configs):
-                if not name.lower().endswith('.json'):
-                    continue
-
+            _fns = os.listdir(dir_server_configs)
+            _json_fns = (name for name in _fns  if name.lower().endswith('.json'))
+            for name in _json_fns:
                 path = os.path.join(dir_server_configs, name)
                 with open(path, 'r', encoding='utf-8') as f:
                     try:
@@ -463,7 +507,6 @@ class Command:
 
         if not servers_cfgs:
             print(f'NOTE:{LOG_NAME}: no server configs was found in "{dir_server_configs}"')
-
 
 
     def _save_config(self):
@@ -484,6 +527,20 @@ class Command:
     def _killpy(self):
         lpy = self._langs.pop('python')
         lpy.shutdown()
+
+
+# if python too old - give msgbox and disable plugin
+import sys
+ver = sys.version_info
+if ver.major < 3 or ver.minor < 5:
+    msg = f'{LOG_NAME}: current Python version is not supported.' \
+        +' Please upgrade to Python 3.6 or newer.'
+    callback = lambda *args, msg=msg, **vargs: msg_box(msg, MB_OK)
+    timer_proc(TIMER_START_ONE, callback, 1000)
+
+    class Command:
+        def __getattribute__(self, name):
+            return lambda *args, **vargs: None
 
 
 options_json = """{

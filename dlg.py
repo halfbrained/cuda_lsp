@@ -4,7 +4,6 @@ import cudatext as ct
 
 
 from .sansio_lsp_client.structs import MarkupKind
-from .sansio_lsp_client.events import Hover
 
 ed = ct.ed
 dlg_proc = ct.dlg_proc
@@ -36,6 +35,7 @@ class Hint:
     """
     h = None
     theme_name = None
+    current_caret = None
 
     @classmethod
     def init_form(cls):
@@ -51,6 +51,18 @@ class Hint:
                 # doesn't work well with embedded Editor -- using timer hide_check_timer()
                 #'on_mouse_exit': cls.dlgcolor_mouse_exit,
                 })
+
+        n = dlg_proc(h, ct.DLG_CTL_ADD, 'button_ex')
+        dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
+                'align': ct.ALIGN_BOTTOM,
+                #'sp_a': FORM_GAP,
+                'h': 20,
+                #'w': 128,
+                #'w_max': 128,
+                'on_change': cls.on_definition_click,
+                })
+        h_def = dlg_proc(h, ct.DLG_CTL_HANDLE, index=n)
+        ct.button_proc(h_def, ct.BTN_SET_TEXT, 'Go to Definition')
 
         n = dlg_proc(h, ct.DLG_CTL_ADD, 'editor')
         dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
@@ -68,6 +80,7 @@ class Hint:
 
         cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
 
+        dlg_proc(h, ct.DLG_SCALE)
         return h, ed
 
     @classmethod
@@ -80,6 +93,8 @@ class Hint:
                 ct.dlg_proc(cls.h, ct.DLG_FREE)
 
             cls.h, cls.ed = cls.init_form()
+
+        cls.current_caret = caret # for 'Go to Definition'
 
         cls.cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
         scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
@@ -136,6 +151,12 @@ class Hint:
         dlg_proc(cls.h, ct.DLG_SHOW_NONMODAL)
 
     @classmethod
+    def on_definition_click(cls, id_dlg, id_ctl, data='', info=''):
+        if cls.current_caret:
+            caret_str = '|'.join(map(str, cls.current_caret))
+            ct.app_proc(ct.PROC_EXEC_PLUGIN, 'cuda_lsp,caret_definition,' + caret_str)
+
+    @classmethod
     def hide_check_timer(cls, tag='', info=''):
         # hide if not over dialog  and  cursor moved at least ~15px
         if not is_mouse_in_form(cls.h)  and  cursor_dist(cls.cursor_pos) > cls.cursor_margin:
@@ -144,6 +165,7 @@ class Hint:
             # clear editor data and hide dialog
             cls.ed.set_prop(ct.PROP_RO, False)
             cls.ed.set_text_all('')
+            cls.current_caret = None
             dlg_proc(cls.h, ct.DLG_HIDE)
 
             ed.focus()

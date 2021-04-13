@@ -4,16 +4,20 @@ desc=Support LSP (Language Server Protocol) servers, for different languages
 type=cudatext-plugin
 subdir=cuda_lsp
 homepage=https://github.com/halfbrained/cuda_lsp
+api=1.0.381
 
 [item2]
 section=events
-events=on_open,on_save,on_close,on_tab_change
+events=on_open,on_save,on_close,on_tab_change,on_state
 
 [item3]
 section=events
-events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint,on_goto_def
-
+events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
 [item4]
+section=events
+events=on_goto_def,on_click_link
+
+[item5]
 section=events
 events=on_exit
 
