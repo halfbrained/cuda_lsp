@@ -9,7 +9,13 @@ CudaText/data/lspconfig
 
 Basic config for a python LSP server "pyls" would look like this:
 {
+    // supported langids
     "langids": ["python"],
+    // map additional non-default lexers to langids 
+    "lexers": {
+    	"Rainbow python": "python"
+    },
+    // command to start LSP server
     "cmd": ["pyls"]
 }
 

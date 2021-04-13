@@ -11,7 +11,7 @@ from cudax_lib import _json_loads #, get_translation
 import cuda_project_man
 
 from .book import DocBook
-from .util import lex2langid, ed_uri, is_ed_visible
+from .util import lex2langid, update_lexmap, langid2lex, ed_uri, is_ed_visible
 
 # imported on access
 #from .language import Language
@@ -147,6 +147,7 @@ class Command:
 
         lex = ed_self.get_prop(PROP_LEXER_FILE)
         langid = lex2langid(lex)
+
         if lex is None  or  langid is None:
             if doc:
                 doc.update()
@@ -463,6 +464,7 @@ class Command:
             if doc and doc.lang:
                 doc.lang.request_definition_loc(doc, x=x, y=y)
 
+
     def _load_config(self):
         global opt_enable_mouse_hover
         global opt_root_dir_source
@@ -490,20 +492,30 @@ class Command:
 
         # servers
         if os.path.exists(dir_server_configs):
+            user_lexids = {}
             _fns = os.listdir(dir_server_configs)
             _json_fns = (name for name in _fns  if name.lower().endswith('.json'))
             for name in _json_fns:
                 path = os.path.join(dir_server_configs, name)
                 with open(path, 'r', encoding='utf-8') as f:
                     try:
-                        j = json.load(f)
+                        j = _json_loads(f.read())
                     except:
                         print(f'NOTE:{LOG_NAME}: failed to load server config: {path}')
                         continue
 
+                # load lex map from config
+                langids = j.setdefault('langids', [])
+                lexmap = j.get('lexers', {})
+                for lex,langid in lexmap.items():
+                    langids.append(langid)
+                    user_lexids[lex] = langid
+
                 if 'name' not in j:
                     j['name'] = os.path.splitext(name)[0]
                 servers_cfgs.append(j)
+
+            update_lexmap(user_lexids) # add user mapping to global map
 
         if not servers_cfgs:
             print(f'NOTE:{LOG_NAME}: no server configs was found in "{dir_server_configs}"')

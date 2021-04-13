@@ -56,6 +56,8 @@ def collapse_path(path):
         path = path.replace(USER_DIR, '~', 1)
     return path
 
+def update_lexmap(upd):
+    lex_ids.update(upd)
 
 # https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
 lex_ids = {
