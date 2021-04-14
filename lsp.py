@@ -28,8 +28,6 @@ from .util import (
 LOG = False
 LOG_NAME = 'LSP'
 
-cmd_MoveTabToGroupFloating1 = 2646
-
 # considering all 'lsp_*.json' - server configs
 dir_settings = app_path(APP_DIR_SETTINGS)
 fn_config = os.path.join(dir_settings, 'cuda_lsp.json')
@@ -143,7 +141,6 @@ class Command:
         if not os.path.exists(fn_config):
             self._save_config()
         file_open((fn_config, fn_opt_descr))
-        ed.cmd(cmd_MoveTabToGroupFloating1)
 
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
