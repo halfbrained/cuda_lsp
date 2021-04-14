@@ -85,6 +85,7 @@ class Hint:
         edt.set_prop(ct.PROP_GUTTER_ALL, False)
         edt.set_prop(ct.PROP_MINIMAP, False)
         edt.set_prop(ct.PROP_MICROMAP, False)
+        edt.set_prop(ct.PROP_LAST_LINE_ON_TOP, False)
 
         cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
 
