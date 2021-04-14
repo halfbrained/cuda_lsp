@@ -1,6 +1,5 @@
 import os
 import time
-import json
 
 import sys
 _plugin_dir = os.path.dirname(os.path.realpath(__file__))
@@ -8,9 +7,7 @@ sys.path.append(os.path.join(_plugin_dir, 'lsp_modules'))
 
 from cudatext import *
 from cudax_lib import _json_loads #, get_translation
-import cuda_project_man
 
-from .book import DocBook
 from .dlg import Hint
 from .util import (
         lex2langid,
@@ -23,6 +20,8 @@ from .util import (
 
 # imported on access
 #from .language import Language
+#import cuda_project_man
+#from .book import DocBook
 
 #_   = get_translation(__file__)  # I18N
 
@@ -119,7 +118,7 @@ class Command:
         # editors not on_open'ed durisg sesh-load;  on_open visibles when sesh loaded
         self._sesh_eds = []
         self._langs = {} # langid -> Language
-        self._book = DocBook()
+        self._book = None
 
         self._load_config()
 
@@ -128,6 +127,13 @@ class Command:
             # first call only starts server, subsequent - send didOpen
             app_proc(PROC_SET_SUBCOMMANDS, 'cuda_lsp;force_didopen;LSP-Open-Doc\t')
 
+    @property
+    def book(self):
+        if self._book is None:
+            from .book import DocBook
+
+            self._book = DocBook()
+        return self._book
 
     def config(self):
         if not os.path.exists(fn_config):
@@ -151,7 +157,7 @@ class Command:
         if opt_manual_didopen  or  not is_ed_visible(ed_self):
             return
 
-        doc = self._book.get_doc(ed_self) # get existing
+        doc = self.book.get_doc(ed_self) # get existing
 
         lex = ed_self.get_prop(PROP_LEXER_FILE)
         langid = lex2langid(lex)
@@ -168,8 +174,8 @@ class Command:
         # if have server for this lexer
         if lang:
             if not doc:
-                self._book.new_doc(ed_self)
-                doc = self._book.get_doc(ed_self)
+                self.book.new_doc(ed_self)
+                doc = self.book.get_doc(ed_self)
 
             if lang.on_open(doc): # doc's .lang is set only when was actually didOpen-ed
                 doc.update(lang=lang)
@@ -179,7 +185,7 @@ class Command:
             * if was unsaved with LSP lexer: will have a LSP 'doc' -- ok
             * lexer change via save is handles in .on_lexer()
         """
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc:     # if owning LSP doc
             newuri = ed_uri(ed_self)
             if doc.uri != newuri:   # if uri changed (new file) - close old, open new
@@ -194,16 +200,16 @@ class Command:
             self.on_open(ed_self)
 
     def on_close(self, ed_self):
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc:
             pass;       LOG and print('on_close: '+doc.uri)
             if doc.lang:
                 doc.lang.on_close(doc)
-            self._book.on_close(ed_self) # deletes doc
+            self.book.on_close(ed_self) # deletes doc
 
     #NOTE: also gets called when document first activated
     def on_lexer(self, ed_self):
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc:
             newlex = ed_self.get_prop(PROP_LEXER_FILE)
             oldlex = doc.lex
@@ -219,13 +225,13 @@ class Command:
         if opt_send_change_on_request:
             return
 
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc and doc.lang:
             doc.lang.send_changes(doc)
 
     @command
     def on_complete(self, ed_self):
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc and doc.lang:
             return doc.lang.on_complete(doc)
 
@@ -237,18 +243,18 @@ class Command:
 
     def on_mouse_stop(self, ed_self, x, y):
         if not opt_enable_mouse_hover:      return
-        if Hint.is_under_cursor():      return
         # require Control pressed
         if app_proc(PROC_GET_KEYSTATE, '') != 'c':
             return
+        if Hint.is_under_cursor():      return
 
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
             doc.lang.on_hover(doc, x=x, y=y)
 
     @command
     def on_func_hint(self, ed_self):
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
             doc.lang.request_sighelp(doc)
             return ''
@@ -257,7 +263,7 @@ class Command:
         self.call_definition(ed_self)
 
     def on_tab_change(self, ed_self):
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang:
             doc.lang.on_ed_shown(doc)
         else: # look for matching server if not already opened
@@ -271,7 +277,7 @@ class Command:
         """
         for lang in self._langs.values():
             if lang.name == name:
-                for doc in self._book.get_docs():
+                for doc in self.book.get_docs():
                     if doc.lang is None  and  is_ed_visible(doc.ed):
                         self.on_open(doc.ed)
                 break # found initted lang
@@ -323,6 +329,7 @@ class Command:
             for cfg in servers_cfgs:
                 if langid in cfg.get('langids', []):
                     from .language import Language
+                    import cuda_project_man
 
                     # choose root directory for server: .opt_root_dir_source
                     work_dir = None
@@ -344,61 +351,61 @@ class Command:
 
     @command
     def call_hover(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.on_hover(doc)
 
     @command
     def call_definition(self, ed_self=None):
         ed_self = ed_self or ed
-        doc = self._book.get_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         if doc and doc.lang:
             doc.lang.request_definition_loc(doc)
 
     @command
     def call_references(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_references_loc(doc)
 
     @command
     def call_implementation(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_implementation_loc(doc)
 
     @command
     def call_declaration(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_declaration_loc(doc)
 
     @command
     def call_typedef(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_typedef_loc(doc)
 
 
     def dbg_call_hierarchy_in(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.call_hierarchy_in(doc)
 
 
     def dbg_doc_symbols(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.doc_symbol(doc)
 
     def dbg_workspace_symbols(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.workspace_symbol(doc)
 
 
     def dbg_signature(self):
-        doc = self._book.get_doc(ed)
+        doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_sighelp(doc)
 
@@ -425,7 +432,7 @@ class Command:
                 ed.set_text_all(pprint.pformat(j, width=256))
 
     def dbg_show_docs(self):
-        items = [f'{doc.lang}: {doc}' for doc in self._book.get_docs()]
+        items = [f'{doc.lang}: {doc}' for doc in self.book.get_docs()]
         dlg_menu(DMENU_LIST, items, caption='LSP Docs')
 
     @command
@@ -439,7 +446,7 @@ class Command:
             lang.shutdown()
 
             # remove referencees to Language object
-            for doc in self._book.get_docs():
+            for doc in self.book.get_docs():
                 if doc.lang == lang:
                     doc.update(lang=None)
 
@@ -456,8 +463,8 @@ class Command:
         lang = self._get_lang(ed_self, _langid) # uses dynamic server registrationed
         pass;       LOG and print(f'manual didopen: lex, langid, filename:{_langid, ed_self.get_filename()} =>> lang:{lang.name if lang else "none"}')
 
-        self._book.new_doc(ed_self)
-        doc = self._book.get_doc(ed_self)
+        self.book.new_doc(ed_self)
+        doc = self.book.get_doc(ed_self)
         lang.on_open(doc)
         doc.update(lang=lang)
 
@@ -471,7 +478,7 @@ class Command:
         caret_px = ed_self.convert(CONVERT_CARET_TO_PIXELS, *caret)
         if caret_px:
             x,y = caret_px
-            doc = self._book.get_doc(ed_self)
+            doc = self.book.get_doc(ed_self)
             if doc and doc.lang:
                 doc.lang.request_definition_loc(doc, x=x, y=y)
 
