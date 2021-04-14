@@ -2,8 +2,8 @@
 #from cudatext import *
 import cudatext as ct
 
-
-from .sansio_lsp_client.structs import MarkupKind
+# imported on ~access
+#from .sansio_lsp_client.structs import MarkupKind
 
 ed = ct.ed
 dlg_proc = ct.dlg_proc
@@ -39,6 +39,10 @@ class Hint:
 
     @classmethod
     def init_form(cls):
+        global MarkupKind
+
+        from .sansio_lsp_client.structs import MarkupKind
+
         h = dlg_proc(0, ct.DLG_CREATE)
 
         colors = ct.app_proc(ct.PROC_THEME_UI_DICT_GET, '')
@@ -84,7 +88,7 @@ class Hint:
         return h, ed
 
     @classmethod
-    def show(cls, text, markupkind=MarkupKind.PLAINTEXT, caret=None):
+    def show(cls, text, markupkind=None, caret=None):
         if not text:
             return
 
@@ -108,7 +112,7 @@ class Hint:
 
         if markupkind == MarkupKind.MARKDOWN:
             cls.ed.set_prop(ct.PROP_LEXER_FILE, 'Markdown')
-        elif markupkind == MarkupKind.PLAINTEXT:
+        else:
             cls.ed.set_prop(ct.PROP_LEXER_FILE, None)
 
         cls.ed.set_prop(ct.PROP_RO, True)
@@ -162,16 +166,19 @@ class Hint:
         if not is_mouse_in_form(cls.h)  and  cursor_dist(cls.cursor_pos) > cls.cursor_margin:
             ct.timer_proc(ct.TIMER_STOP, Hint.hide_check_timer, 250, tag='')
 
-            # clear editor data and hide dialog
-            cls.ed.set_prop(ct.PROP_RO, False)
-            cls.ed.set_text_all('')
-            cls.current_caret = None
-            dlg_proc(cls.h, ct.DLG_HIDE)
-
+            cls.hide()
             ed.focus()
 
         if tag == 'initial': # give some time to move mouse to dialog
             ct.timer_proc(ct.TIMER_START, Hint.hide_check_timer, 250, tag='')
+
+    @classmethod
+    def hide(cls):
+        # clear editor data and hide dialog
+        cls.ed.set_prop(ct.PROP_RO, False)
+        cls.ed.set_text_all('')
+        cls.current_caret = None
+        dlg_proc(cls.h, ct.DLG_HIDE)
 
     @classmethod
     def is_theme_changed(cls):

@@ -4,6 +4,8 @@ from urllib.parse import unquote, urlparse
 
 import cudatext as ct
 
+from .dlg import Hint
+
 USER_DIR = os.path.expanduser('~')
 
 def get_first(gen):
@@ -55,6 +57,14 @@ def collapse_path(path):
     if (path + os.sep).startswith(USER_DIR + os.sep):
         path = path.replace(USER_DIR, '~', 1)
     return path
+
+def command(f):
+    def d(*args, **vargs): #SKIP
+        if Hint.is_visible():
+            Hint.hide()
+        return f(*args, **vargs)
+    return d
+
 
 def update_lexmap(upd):
     lex_ids.update(upd)

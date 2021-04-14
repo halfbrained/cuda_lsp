@@ -11,11 +11,18 @@ from cudax_lib import _json_loads #, get_translation
 import cuda_project_man
 
 from .book import DocBook
-from .util import lex2langid, update_lexmap, langid2lex, ed_uri, is_ed_visible
+from .dlg import Hint
+from .util import (
+        lex2langid,
+        update_lexmap,
+        langid2lex,
+        ed_uri,
+        is_ed_visible,
+        command, # hides hint
+    )
 
 # imported on access
 #from .language import Language
-#from .dlg import Hint
 
 #_   = get_translation(__file__)  # I18N
 
@@ -215,6 +222,7 @@ class Command:
         if doc and doc.lang:
             doc.lang.send_changes(doc)
 
+    @command
     def on_complete(self, ed_self):
         doc = self._book.get_doc(ed_self)
         if doc and doc.lang:
@@ -227,9 +235,6 @@ class Command:
             lang.on_snippet(ed_self, snippet_id, snippet_text)
 
     def on_mouse_stop(self, ed_self, x, y):
-        global Hint
-        from .dlg import Hint
-
         if Hint.is_under_cursor():
             return
 
@@ -242,6 +247,7 @@ class Command:
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
             doc.lang.on_hover(doc, x=x, y=y)
 
+    @command
     def on_func_hint(self, ed_self):
         doc = self._book.get_doc(ed_self)
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
@@ -337,33 +343,38 @@ class Command:
 
         return self._langs.get(langid)
 
-
+    @command
     def call_hover(self):
         doc = self._book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.on_hover(doc)
 
+    @command
     def call_definition(self, ed_self=None):
         ed_self = ed_self or ed
         doc = self._book.get_doc(ed_self)
         if doc and doc.lang:
             doc.lang.request_definition_loc(doc)
 
+    @command
     def call_references(self):
         doc = self._book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_references_loc(doc)
 
+    @command
     def call_implementation(self):
         doc = self._book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_implementation_loc(doc)
 
+    @command
     def call_declaration(self):
         doc = self._book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.request_declaration_loc(doc)
 
+    @command
     def call_typedef(self):
         doc = self._book.get_doc(ed)
         if doc and doc.lang:
@@ -418,7 +429,7 @@ class Command:
         items = [f'{doc.lang}: {doc}' for doc in self._book.get_docs()]
         dlg_menu(DMENU_LIST, items, caption='LSP Docs')
 
-
+    @command
     # for project folder change
     def shutdown_server(self):
         names = list(self._langs)
