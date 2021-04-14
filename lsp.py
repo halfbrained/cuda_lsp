@@ -28,9 +28,9 @@ from .util import (
 LOG = False
 LOG_NAME = 'LSP'
 
-fn_config = os.path.join(app_path(APP_DIR_SETTINGS), 'cuda_lsp.json')
-#fn_config_servers = os.path.join(app_path(APP_DIR_SETTINGS), 'cuda_lsp_servers.json')
-dir_server_configs = os.path.join(app_path(APP_DIR_DATA), 'lspconfig')
+# considering all 'lsp_*.json' - server configs
+dir_settings = app_path(APP_DIR_SETTINGS)
+fn_config = os.path.join(dir_settings, 'cuda_lsp.json')
 
 opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
@@ -514,12 +514,13 @@ class Command:
             Hint.set_max_lines(opt_hover_max_lines)
 
         # servers
-        if os.path.exists(dir_server_configs):
+        if os.path.exists(dir_settings):
             user_lexids = {}
-            _fns = os.listdir(dir_server_configs)
-            _json_fns = (name for name in _fns  if name.lower().endswith('.json'))
-            for name in _json_fns:
-                path = os.path.join(dir_server_configs, name)
+            _fns = os.listdir(dir_settings)
+            _lsp_fns = [name for name in _fns  if name.startswith('lsp_')
+                                                    and name.lower().endswith('.json')]
+            for name in _lsp_fns:
+                path = os.path.join(dir_settings, name)
                 with open(path, 'r', encoding='utf-8') as f:
                     try:
                         j = _json_loads(f.read())
@@ -541,7 +542,7 @@ class Command:
             update_lexmap(user_lexids) # add user mapping to global map
 
         if not servers_cfgs:
-            print(f'NOTE:{LOG_NAME}: no server configs was found in "{dir_server_configs}"')
+            print(f'NOTE:{LOG_NAME}: no server configs was found in "{dir_settings}"')
 
 
     def _save_config(self):
@@ -565,7 +566,6 @@ class Command:
 
 
 # if python too old - give msgbox and disable plugin
-import sys
 ver = sys.version_info
 if (ver.major, ver.minor) < (3, 6):
     msg = f'{LOG_NAME}: current Python version is not supported.' \

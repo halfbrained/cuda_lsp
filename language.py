@@ -1,3 +1,4 @@
+import sys
 import os
 import socket
 import time
@@ -48,6 +49,10 @@ print_server_errors = False
 LOG = False
 LOG_NAME = 'LSP'
 
+IS_WIN = os.name=='nt'
+IS_MAC = sys.platform=='darwin'
+CMD_OS_KEY = 'cmd_windows' if IS_WIN else ('cmd_macos' if IS_MAC else 'cmd_unix')
+
 SNIP_ID = 'cuda_lsp__snip'
 
 TCP_CONNECT_TIMEOUT = 5 # sec
@@ -77,7 +82,7 @@ class Language:
         self.lang_str = ', '.join([langid2lex(lid) for lid in self.langids])
         self.name = cfg['name'] # "name" from config or config filename (internal)
 
-        self._server_cmd = cfg.get('cmd')
+        self._server_cmd = cfg.get(CMD_OS_KEY)
         self._tcp_port = cfg.get('tcp_port') # None => use Popen
         self._work_dir = cfg.get('work_dir')
 
