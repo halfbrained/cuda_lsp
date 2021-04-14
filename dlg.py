@@ -91,8 +91,9 @@ class Hint:
         dlg_proc(h, ct.DLG_SCALE)
         return h, edt
 
+    # language - from deprecated 'MarkedString'
     @classmethod
-    def show(cls, text, markupkind=None, caret=None):
+    def show(cls, text, caret, cursor_loc_start, markupkind=None, language=None):
         if not text:
             return
 
@@ -103,57 +104,60 @@ class Hint:
             cls.h, cls.ed = cls.init_form()
 
         cls.current_caret = caret # for 'Go to Definition'
-
         cls.cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
-        scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
-        cls.cursor_margin = 15 * scale_UI_percent*0.01 # 15px scaled
+        _scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
+        cls.cursor_margin = 15 * _scale_UI_percent*0.01 # 15px scaled
 
+        ### dont show dialog if cursor moved from request-position
+        _glob_cursor_start = ed.convert(ct.CONVERT_LOCAL_TO_SCREEN, *cursor_loc_start)
+        if cursor_dist(_glob_cursor_start) > cls.cursor_margin:
+            return
+
+        ### dialog Editor setup
         cls.ed.set_prop(ct.PROP_RO, False)
+        try:
+            cls.ed.set_text_all(text)
+            cls.ed.set_prop(ct.PROP_LINE_TOP, 0)
+            cls.ed.set_prop(ct.PROP_SCROLL_HORZ, 0)
 
-        cls.ed.set_text_all(text)
-        cls.ed.set_prop(ct.PROP_LINE_TOP, 0)
-        cls.ed.set_prop(ct.PROP_SCROLL_HORZ, 0)
+            if markupkind == MarkupKind.MARKDOWN:
+                cls.ed.set_prop(ct.PROP_LEXER_FILE, 'Markdown')
+            else:
+                cls.ed.set_prop(ct.PROP_LEXER_FILE, None)
+        finally:
+            cls.ed.set_prop(ct.PROP_RO, True)
 
-        if markupkind == MarkupKind.MARKDOWN:
-            cls.ed.set_prop(ct.PROP_LEXER_FILE, 'Markdown')
+        ### calculate dialog position and dimensions: x,y, h,w
+        l,t,r,b = ed.get_prop(ct.PROP_RECT_TEXT)
+        cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
+        ed_size_x = r - l # text area sizes - to not obscure other ed-controls
+
+        caret_loc_px = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
+        top_hint = caret_loc_px[1]-t > b-caret_loc_px[1] # space up is larger than down
+        y0,y1 = (t, caret_loc_px[1])  if top_hint else  (caret_loc_px[1], b)
+        h = min(FORM_H,  y1-y0 - FORM_GAP*2 - cell_h)
+        w = min(FORM_W, ed_size_x)
+
+        x = caret_loc_px[0] - int(w*0.5) # center over caret
+        if x < l: # dont fit on left
+            x = l + FORM_GAP
+        elif x+w > r: # dont fit on right
+            x = r - w - FORM_GAP
+
+        if top_hint:
+            y = (caret_loc_px[1] - (h + cell_h + FORM_GAP))
         else:
-            cls.ed.set_prop(ct.PROP_LEXER_FILE, None)
+            y = (caret_loc_px[1] + cell_h + FORM_GAP)
 
-        cls.ed.set_prop(ct.PROP_RO, True)
 
-        if caret is not None:
-            pos = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
+        dlg_proc(cls.h, ct.DLG_PROP_SET, prop={
+                'p': ed.get_prop(ct.PROP_HANDLE_SELF ), #set parent to Editor handle
+                'x': x,
+                'y': y,
+                'w': w,
+                'h': h,
+                })
 
-            # dont show dialog if cursor moved from request-position
-            _glob_cursor = ed.convert(ct.CONVERT_LOCAL_TO_SCREEN, *pos)
-            if pos is None  or  cursor_dist(_glob_cursor) > cls.cursor_margin:
-                return
-
-            l,t,r,b = ed.get_prop(ct.PROP_RECT_TEXT) # l,t,r,b
-            cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
-            ed_size_x = r - l # text area sizes - to not obscure other ed-controls
-
-            top_hint = pos[1]-t > b-pos[1] # space up is larger than down
-            y0,y1 = (t, pos[1])  if top_hint else  (pos[1], b)
-            h = min(FORM_H,  y1-y0 - FORM_GAP*2 - cell_h)
-            w = min(FORM_W, ed_size_x)
-
-            x = pos[0] - int(w*0.5) # center over caret
-            if x < l: # dont fit on left
-                x = l + FORM_GAP
-            elif x+w > r: # dont fit on right
-                x = r - w - FORM_GAP
-
-            y = (pos[1] - (h + cell_h + FORM_GAP))  if top_hint else  (pos[1] + cell_h + FORM_GAP)
-
-            dlg_proc(cls.h, ct.DLG_PROP_SET, prop={
-                    'p': ed.get_prop(ct.PROP_HANDLE_SELF ), #set parent to Editor handle
-                    'x': x,
-                    'y': y,
-                    'w': w,
-                    'h': h,
-                    })
-        #end if
         # first - large delay, after - smaller
         ct.timer_proc(ct.TIMER_START_ONE, Hint.hide_check_timer, 750, tag='initial')
         dlg_proc(cls.h, ct.DLG_SHOW_NONMODAL)

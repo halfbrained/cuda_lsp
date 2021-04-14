@@ -66,7 +66,7 @@ CALLABLE_COMPLETIONS = {
     CompletionItemKind.CLASS,
 }
 
-RequestPos = namedtuple('RequestPos', 'h_ed carets mouse_caret')
+RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
 
 class Language:
@@ -258,7 +258,11 @@ class Language:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
-                    Hint.show(msg.m_str(), caret=_reqpos.mouse_caret)
+                    Hint.show(msg.m_str(),
+                            caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
+                            markupkind=getattr(msg, 'kind', None),
+                            language=getattr(msg, 'language', None)
+                    )
 
         elif msgtype == events.SignatureHelp:
             if msg.message_id in self.request_positions:
@@ -418,10 +422,11 @@ class Language:
 
     def on_hover(self, eddoc, x=None, y=None):
         """ just sends request to server, dsiplaying stuff in 'dlg.py/Hint'
+            x,y - mouse editor-related coords.
         """
         id, pos = self._action_by_name(METHOD_HOVER, eddoc, x=x, y=y)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
     def do_goto(self, items, dlg_caption, skip_dlg=False):
         """ items: Location or t.List[t.Union[Location, LocationLink]], None
@@ -497,32 +502,32 @@ class Language:
     def request_sighelp(self, eddoc):
         id, pos = self._action_by_name(METHOD_SIG_HELP, eddoc)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
     def request_definition_loc(self, eddoc, x=None, y=None):
         id, pos = self._action_by_name(METHOD_DEFINITION, eddoc, x=x, y=y)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
     def request_references_loc(self, eddoc):
         id, pos = self._action_by_name(METHOD_REFERENCES, eddoc)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
     def request_implementation_loc(self, eddoc):
         id, pos = self._action_by_name(METHOD_IMPLEMENTATION, eddoc)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
     def request_declaration_loc(self, eddoc):
         id, pos = self._action_by_name(METHOD_DECLARATION, eddoc)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
     def request_typedef_loc(self, eddoc):
         id, pos = self._action_by_name(METHOD_TYPEDEF, eddoc)
         if id is not None:
-            self._save_req_pos(id=id, mouse_caret=pos)
+            self._save_req_pos(id=id, target_pos_caret=pos)
 
 
     def doc_symbol(self, eddoc):
@@ -569,10 +574,13 @@ class Language:
             timer_proc(TIMER_STOP, self.process_queues, 0)
 
 
-    def _save_req_pos(self, id, mouse_caret=None):
-        h_ed = ed.get_prop(PROP_HANDLE_SELF)
+    def _save_req_pos(self, id, target_pos_caret=None):
+        h = ed.get_prop(PROP_HANDLE_SELF)
         carets = ed.get_carets()
-        self.request_positions[id] = RequestPos(h_ed=h_ed, carets=carets, mouse_caret=mouse_caret)
+        _cursor = app_proc(PROC_GET_MOUSE_POS, '') # screen coords
+        cursor_ed = ed.convert(CONVERT_SCREEN_TO_LOCAL, *_cursor)
+        _req = RequestPos(h,  carets=carets,  target_pos_caret=target_pos_caret,  cursor_ed=cursor_ed)
+        self.request_positions[id] = _req
 
     def _dbg_print_registrations(self):
         import pprint

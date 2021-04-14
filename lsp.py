@@ -463,6 +463,7 @@ class Command:
         lang.on_open(doc)
         doc.update(lang=lang)
 
+    @command
     def caret_definition(self, caret_str):
         """ caret_str: string - '3|39' - caretx|carety
         """
