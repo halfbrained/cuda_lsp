@@ -136,7 +136,7 @@ class Language:
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                print(f'NOTE:{LOG_NAME}: {self.lang_str} - Failed to connect on port {self.tcp_port}')
+                print(f'NOTE: {LOG_NAME}: {self.lang_str} - Failed to connect on port {self.tcp_port}')
                 return
 
             self._reader = self.sock.makefile('rwb')  # type: ignore
@@ -153,7 +153,7 @@ class Language:
                     #env=,
                 )
             except Exception as ex:
-                print(f'NOTE:{LOG_NAME}: {self.lang_str} - Failed to create process, command:'
+                print(f'NOTE: {LOG_NAME}: {self.lang_str} - Failed to create process, command:'
                         +f' {self._server_cmd}; Error: {ex}')
                 return
 

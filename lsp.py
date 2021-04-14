@@ -506,7 +506,7 @@ class Command:
             if _opt_root_dir_source in [0, 1]:
                 opt_root_dir_source = _opt_root_dir_source
             else:
-                print(f'NOTE:{LOG_NAME}: invalid value of option "root_dir_source"'
+                print(f'NOTE: {LOG_NAME}: invalid value of option "root_dir_source"'
                         +f' in {fn_config}, should be "0" or "1"')
 
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
@@ -530,7 +530,7 @@ class Command:
                     try:
                         j = _json_loads(f.read())
                     except:
-                        print(f'NOTE:{LOG_NAME}: failed to load server config: {path}')
+                        print(f'NOTE: {LOG_NAME}: failed to load server config: {path}')
                         continue
 
                 # load lex map from config
@@ -547,7 +547,7 @@ class Command:
             update_lexmap(user_lexids) # add user mapping to global map
 
         if not servers_cfgs:
-            print(f'NOTE:{LOG_NAME}: no server configs was found in "{dir_settings}"')
+            print(f'NOTE: {LOG_NAME}: no server configs was found in "{dir_settings}"')
 
 
     def _save_config(self):
