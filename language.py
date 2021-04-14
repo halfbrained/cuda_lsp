@@ -38,6 +38,8 @@ from .sansio_lsp_client.structs import (
         LocationLink,
         DocumentSymbol,
         CompletionItemKind,
+        MarkupKind,
+        MarkedString,
     )
 
 #_   = get_translation(__file__)  # I18N
@@ -263,10 +265,18 @@ class Language:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
+                    first_item = msg.contents[0] if isinstance(msg.contents, list) and len(msg.contents) > 0 else msg.contents
+                    if isinstance(first_item, (MarkedString, str)):
+                        # for deprecated 'MarkedString' or 'str' default to 'markdown'
+                        markupkind = MarkupKind.MARKDOWN
+                    else:
+                        # can be a list (supposedly)
+                        markupkind = getattr(first_item, 'kind', None)
+
                     Hint.show(msg.m_str(),
                             caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
-                            markupkind=getattr(msg, 'kind', None),
-                            language=getattr(msg, 'language', None)
+                            markupkind=markupkind,
+                            language=getattr(first_item, 'language', None)
                     )
 
         elif msgtype == events.SignatureHelp:
