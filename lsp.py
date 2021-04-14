@@ -544,10 +544,10 @@ class Command:
 # if python too old - give msgbox and disable plugin
 import sys
 ver = sys.version_info
-if ver.major < 3 or ver.minor < 6:
+if (ver.major, ver.minor) < (3, 6):
     msg = f'{LOG_NAME}: current Python version is not supported.' \
         +' Please upgrade to Python 3.6 or newer.'
-    callback = lambda *args, msg=msg, **vargs: msg_box(msg, MB_OK)
+    callback = lambda *args, msg=msg, **vargs: msg_box(msg, MB_OK or MB_ICONWARNING)
     timer_proc(TIMER_START_ONE, callback, 1000)
 
     class Command:
