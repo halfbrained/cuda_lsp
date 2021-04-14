@@ -60,7 +60,7 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 #TODOC
 * server root uri
 * config tcp port
-* commands + options
+* commands + options; +hover-Control
 
 #TODO later (random order)
 * add status messages
@@ -236,12 +236,10 @@ class Command:
             lang.on_snippet(ed_self, snippet_id, snippet_text)
 
     def on_mouse_stop(self, ed_self, x, y):
-        if Hint.is_under_cursor():
-            return
-
-        if not opt_enable_mouse_hover:
-            #pos = ed.convert(CONVERT_PIXELS_TO_CARET, x,y)
-            #msg_status(f'lsp.py: hover disabled, caret: {x,y} => {pos}')
+        if not opt_enable_mouse_hover:      return
+        if Hint.is_under_cursor():      return
+        # require Control pressed
+        if app_proc(PROC_GET_KEYSTATE, '') != 'c':
             return
 
         doc = self._book.get_doc(ed_self)
