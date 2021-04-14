@@ -10,9 +10,9 @@ dlg_proc = ct.dlg_proc
 
 FORM_W = 550
 FORM_H = 350
+BUTTON_H = 20
+ED_MAX_LINES = 10
 FORM_GAP = 4
-
-COLOR_FORM_BACK = 0x505050
 
 def is_mouse_in_form(h_dlg):
     prop = dlg_proc(h_dlg, ct.DLG_PROP_GET)
@@ -40,8 +40,12 @@ class Hint:
     @classmethod
     def init_form(cls):
         global MarkupKind
+        global FORM_H
 
         from .sansio_lsp_client.structs import MarkupKind
+
+        _cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
+        FORM_H = FORM_GAP*2 + ED_MAX_LINES*cell_h + BUTTON_H
 
         h = dlg_proc(0, ct.DLG_CREATE)
 
@@ -60,7 +64,7 @@ class Hint:
         dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
                 'align': ct.ALIGN_BOTTOM,
                 #'sp_a': FORM_GAP,
-                'h': 20,
+                'h': BUTTON_H,
                 #'w': 128,
                 #'w_max': 128,
                 'on_change': cls.on_definition_click,
@@ -76,16 +80,16 @@ class Hint:
                 })
         h_ed = dlg_proc(h, ct.DLG_CTL_HANDLE, index=n)
         # Editor.set_text_all() doesn't clutter edit history, so no unnecessary stuff is stored in RAM
-        ed = ct.Editor(h_ed)
+        edt = ct.Editor(h_ed)
 
-        ed.set_prop(ct.PROP_GUTTER_ALL, False)
-        ed.set_prop(ct.PROP_MINIMAP, False)
-        ed.set_prop(ct.PROP_MICROMAP, False)
+        edt.set_prop(ct.PROP_GUTTER_ALL, False)
+        edt.set_prop(ct.PROP_MINIMAP, False)
+        edt.set_prop(ct.PROP_MICROMAP, False)
 
         cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
 
         dlg_proc(h, ct.DLG_SCALE)
-        return h, ed
+        return h, edt
 
     @classmethod
     def show(cls, text, markupkind=None, caret=None):
@@ -159,6 +163,12 @@ class Hint:
         if cls.current_caret:
             caret_str = '|'.join(map(str, cls.current_caret))
             ct.app_proc(ct.PROC_EXEC_PLUGIN, 'cuda_lsp,caret_definition,' + caret_str)
+
+    @classmethod
+    def set_max_lines(cls, nlines):
+        global ED_MAX_LINES
+
+        ED_MAX_LINES = nlines
 
     @classmethod
     def hide_check_timer(cls, tag='', info=''):

@@ -36,6 +36,7 @@ dir_server_configs = os.path.join(app_path(APP_DIR_DATA), 'lspconfig')
 opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
 opt_send_change_on_request = False
+opt_hover_max_lines = 10
 
 # to close - change lexer (then back)
 opt_manual_didopen = False # debug help "manual_didopen"
@@ -481,6 +482,7 @@ class Command:
         global opt_root_dir_source
         global opt_manual_didopen
         global opt_send_change_on_request
+        global opt_hover_max_lines
 
         # general cfg
         if os.path.exists(fn_config):
@@ -497,9 +499,13 @@ class Command:
                         +f' in {fn_config}, should be "0" or "1"')
 
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
+            opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', False)
+
+            # apply options
+            Hint.set_max_lines(opt_hover_max_lines)
 
         # servers
         if os.path.exists(dir_server_configs):
@@ -578,6 +584,9 @@ options_json = """{
     // false - changes to the documents are sent to server after edit and a short delay (default)
     // true - sent only before requests (will delay server's analysis)
     "send_change_on_request": false,
+
+    // hover dialog max lines number
+    "hover_dlg_max_lines": 10,
 }
 """
 
