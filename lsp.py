@@ -28,9 +28,13 @@ from .util import (
 LOG = False
 LOG_NAME = 'LSP'
 
+cmd_MoveTabToGroupFloating1 = 2646
+
 # considering all 'lsp_*.json' - server configs
 dir_settings = app_path(APP_DIR_SETTINGS)
 fn_config = os.path.join(dir_settings, 'cuda_lsp.json')
+fn_opt_descr = os.path.join(_plugin_dir, 'readme', 'options_description.md')
+
 
 opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
@@ -38,7 +42,7 @@ opt_send_change_on_request = False
 opt_hover_max_lines = 10
 
 # to close - change lexer (then back)
-opt_manual_didopen = False # debug help "manual_didopen"
+opt_manual_didopen = None # debug help "manual_didopen"
 
 """
 file:///install.inf
@@ -138,7 +142,8 @@ class Command:
     def config(self):
         if not os.path.exists(fn_config):
             self._save_config()
-        file_open(fn_config)
+        file_open((fn_config, fn_opt_descr))
+        ed.cmd(cmd_MoveTabToGroupFloating1)
 
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
@@ -508,7 +513,7 @@ class Command:
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
 
             # hidden,dbg
-            opt_manual_didopen = j.get('manual_didopen', False)
+            opt_manual_didopen = j.get('manual_didopen', None)
 
             # apply options
             Hint.set_max_lines(opt_hover_max_lines)
@@ -547,8 +552,19 @@ class Command:
 
     def _save_config(self):
         if not os.path.exists(fn_config):
+            import json
+
+            j = {
+                'root_dir_source': opt_root_dir_source,
+                'send_change_on_request': opt_send_change_on_request,
+                'hover_dlg_max_lines': opt_hover_max_lines,
+                'enable_mouse_hover': opt_enable_mouse_hover,
+            }
+            if opt_manual_didopen is not None:
+                j['manual_didopen'] = opt_manual_didopen
+
             with open(fn_config, 'w', encoding='utf-8') as f:
-                f.write(options_json)
+                json.dump(j, f, indent=2)
 
     # DBG
     @property
@@ -578,23 +594,6 @@ if (ver.major, ver.minor) < (3, 6):
             return lambda *args, **vargs: None
 
 
-options_json = """{
-    // when 'false' - 'hover' only acessible via a command
-    "enable_mouse_hover": true,
-
-    // LSP server root directory source:
-    // 0: parent directory of '.cuda-proj'
-    // 1: first directory in project
-    "root_dir_source": 0,
-
-    // false - changes to the documents are sent to server after edit and a short delay (default)
-    // true - sent only before requests (will delay server's analysis)
-    "send_change_on_request": false,
-
-    // hover dialog max lines number
-    "hover_dlg_max_lines": 10,
-}
-"""
 
 servers_cfgs = []
 """
