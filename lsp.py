@@ -291,7 +291,7 @@ class Command:
                         self.on_open(doc.ed)
                 break # found initted lang
         else:
-            raise Exception('Coulnt find initted lang: '+str(name))
+            raise Exception('Couldn\'t find initted lang: '+str(name))
 
     def on_state(self, ed_self, state):
         if state == APPSTATE_SESSION_LOAD_BEGIN: # started
