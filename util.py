@@ -65,6 +65,8 @@ def command(f):
         return f(*args, **vargs)
     return d
 
+class ValidationError(Exception):
+    pass
 
 def update_lexmap(upd):
     lex_ids.update(upd)

@@ -16,6 +16,8 @@ from .util import (
         ed_uri,
         is_ed_visible,
         command, # hides hint
+
+        ValidationError,
     )
 
 # imported on access
@@ -170,7 +172,12 @@ class Command:
             return
 
 
-        lang = self._get_lang(ed_self, langid) # uses dynamic server registrationed
+        try:
+            lang = self._get_lang(ed_self, langid) # uses dynamic server registrationed
+        except ValidationError as ex:
+            print(ex)
+            return
+
         pass;       LOG and print(f'on_open: lex, langid, filename:{lex, langid, ed_self.get_filename()} =>> lang:{lang.name if lang else "none"}')
 
         # if have server for this lexer
@@ -342,7 +349,11 @@ class Command:
                         work_dir = _nodes[0] if _nodes else None
                     cfg['work_dir'] = work_dir
 
-                    lang = Language(cfg)
+                    try:
+                        lang = Language(cfg)
+                    except ValidationError:
+                        servers_cfgs.remove(cfg) # dont nag on every on_open
+                        raise
                     pass;       LOG and print(f'*** Created lang({lang.name}) for {ed_self, langid}')
                     # register server to all its supported langids
                     for server_langid in lang.langids:
@@ -537,6 +548,9 @@ class Command:
                     langids.append(langid)
                     user_lexids[lex] = langid
 
+                if not langids:
+                    print(f'NOTE: {LOG_NAME}: sever config error - no associated lexers: {path}')
+                    continue
                 if 'name' not in j:
                     j['name'] = os.path.splitext(name)[0]
                 servers_cfgs.append(j)
@@ -544,7 +558,7 @@ class Command:
             update_lexmap(user_lexids) # add user mapping to global map
 
         if not servers_cfgs:
-            print(f'NOTE: {LOG_NAME}: no server configs was found in "{dir_settings}"')
+            print(f'NOTE: {LOG_NAME}: no server configs loaded from "{dir_settings}"')
 
 
     def _save_config(self):

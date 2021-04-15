@@ -24,6 +24,8 @@ from .util import (
         path_to_uri,
         langid2lex,
         collapse_path,
+
+        ValidationError,
     )
 from .dlg import Hint
 
@@ -88,6 +90,7 @@ class Language:
         self._tcp_port = cfg.get('tcp_port') # None => use Popen
         self._work_dir = cfg.get('work_dir')
 
+        self._validate_config()
 
         # expand user in server start cmd
         if isinstance(self._server_cmd, list):
@@ -596,6 +599,14 @@ class Language:
         cursor_ed = ed.convert(CONVERT_SCREEN_TO_LOCAL, *_cursor)
         _req = RequestPos(h,  carets=carets,  target_pos_caret=target_pos_caret,  cursor_ed=cursor_ed)
         self.request_positions[id] = _req
+
+    def _validate_config(self):
+        """ aborts server start if invalid config
+        """
+        if not self._server_cmd and not self._tcp_port:
+            msg = f'no server-start-command for current OS ({CMD_OS_KEY}) or tcp_port specified'
+            raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
+
 
     def _dbg_print_registrations(self):
         import pprint
