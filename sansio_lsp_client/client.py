@@ -29,6 +29,7 @@ from .events import (
     TypeDefinition,
     RegisterCapabilityRequest,
     MDocumentSymbols,
+    DocumentFormatting,
 )
 from .structs import (
     Response,
@@ -51,6 +52,7 @@ from .structs import (
     # NEW
     ResponseList,
     SymbolInformation,
+    FormattingOptions,
 )
 from .io_handler import _make_request, _parse_messages, _make_response
 
@@ -115,6 +117,10 @@ CAPABILITIES = {
         },
         'typeDefinition': {
             'linkSupport': True,
+            'dynamicRegistration': True
+        },
+
+        'formatting': {
             'dynamicRegistration': True
         },
 
@@ -269,7 +275,6 @@ class Client:
             event.message_id = response.id
 
         elif request.method == "textDocument/documentSymbol":
-            #TODO spread dynamic type getting
             result_type = t.get_type_hints(MDocumentSymbols)['result']
             event = MDocumentSymbols(result=parse_obj_as(result_type, response.result))
 
@@ -292,6 +297,11 @@ class Client:
         elif request.method == "textDocument/prepareCallHierarchy":
             result_type = t.get_type_hints(MCallHierarchItems)['result']
             event = MCallHierarchItems(result=parse_obj_as(result_type, response.result))
+
+        elif request.method == "textDocument/formatting":
+            result_type = t.get_type_hints(DocumentFormatting)['result']
+            event = DocumentFormatting(result=parse_obj_as(result_type, response.result))
+            event.message_id = response.id
 
         # WORKSPACE
         elif request.method == "workspace/symbol":
@@ -554,8 +564,22 @@ class Client:
 
     def doc_symbol(self, text_document: TextDocumentIdentifier) -> int:
         assert self._state == ClientState.NORMAL
-        self._send_request(
+        return self._send_request(
             method="textDocument/documentSymbol",
             params={"textDocument": text_document.dict()},
         )
 
+    def formatting(
+            self,
+            text_document: TextDocumentIdentifier,
+            options: FormattingOptions,
+    ) -> int:
+        assert self._state == ClientState.NORMAL
+        params = {
+            "textDocument": text_document.dict(),
+            "options": options.dict(),
+        }
+        return self._send_request(
+            method="textDocument/formatting",
+            params=params,
+        )

@@ -185,5 +185,11 @@ class EditorDoc:
     def get_docid(self):
         return structs.TextDocumentIdentifier(uri=self.uri)
 
+    #def apply_edit(ed: Editor, edit: TextEdit):
+    def apply_edit(ed, edit):
+        x1,y1,x2,y2 = EditorDoc.range2carets(edit.range)
+        ed.replace(x1,y1,x2,y2, edit.newText)
 
-
+    def range2carets(range):
+        #x1,y1,x2,y2
+        return (range.start.character, range.start.line,  range.end.character, range.end.line,)

@@ -179,4 +179,6 @@ class RegisterCapabilityRequest(ServerRequest):
     def reply(self) -> None:
         self._client._send_response(id=self._id, result={})
 
-
+class DocumentFormatting(Event):
+    message_id: t.Optional[Id] # custom...
+    result: t.Union[t.List[TextEdit], None]

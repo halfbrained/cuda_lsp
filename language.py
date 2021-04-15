@@ -28,6 +28,7 @@ from .util import (
         ValidationError,
     )
 from .dlg import Hint
+from .book import EditorDoc
 
 from .sansio_lsp_client import client as lsp
 from .sansio_lsp_client import events
@@ -42,6 +43,7 @@ from .sansio_lsp_client.structs import (
         CompletionItemKind,
         MarkupKind,
         MarkedString,
+        FormattingOptions,
     )
 
 #_   = get_translation(__file__)  # I18N
@@ -299,6 +301,13 @@ class Language:
         elif msgtype == events.MDocumentSymbols:
             self.show_symbols(msg.result)
 
+        elif msgtype == events.DocumentFormatting:
+            if msg.message_id in self.request_positions:
+                _reqpos = self.request_positions.pop(msg.message_id)
+                if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed  and  msg.result:
+                    for edit in msg.result:
+                        EditorDoc.apply_edit(ed, edit)
+
         elif msgtype == events.PublishDiagnostics:
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
 
@@ -548,6 +557,23 @@ class Language:
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
+    def request_format_doc(self, eddoc):
+        if self.client.is_initialized:
+            opts = self.scfg.method_opts(METHOD_FORMAT_DOC, eddoc)
+            if opts is not None:
+                self.send_changes(eddoc)
+
+                docid = eddoc.get_docid()
+                options = FormattingOptions(
+                    tabSize                 = eddoc.ed.get_prop(PROP_TAB_SIZE),
+                    insertSpaces            = eddoc.ed.get_prop(PROP_TAB_SPACES),
+                    trimTrailingWhitespace  = eddoc.ed.get_prop(PROP_SAVING_TRIM_SPACES),
+                    insertFinalNewline      = eddoc.ed.get_prop(PROP_SAVING_FORCE_FINAL_EOL),
+                    trimFinalNewlines       = eddoc.ed.get_prop(PROP_SAVING_TRIM_FINAL_EMPTY_LINES),
+                )
+                id = self.client.formatting(text_document=docid, options=options)
+                self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
+
 
     def doc_symbol(self, eddoc):
         if self.client.is_initialized:
@@ -716,6 +742,7 @@ METHOD_IMPLEMENTATION   = 'textDocument/implementation'
 METHOD_DECLARATION      = 'textDocument/declaration'
 METHOD_TYPEDEF          = 'textDocument/typeDefinition'
 METHOD_DOC_SYMBOLS      = 'textDocument/documentSymbol'
+METHOD_FORMAT_DOC       = 'textDocument/formatting'
 
 CAPABILITY_DID_OPEN         = 'textDocument.didOpen'
 CAPABILITY_DID_CLOSE        = 'textDocument.didClose'
@@ -730,6 +757,7 @@ CAPABILITY_IMPLEMENTATION   = 'textDocument.implementation'
 CAPABILITY_DECLARATION      = 'textDocument.declaration'
 CAPABILITY_TYPEDEF          = 'textDocument.typeDefinition'
 CAPABILITY_DOC_SYMBOLS      = 'textDocument.documentSymbol'
+CAPABILITY_FORMAT_DOC       = 'textDocument.formatting'
 
 METHOD_PROVIDERS = {
     METHOD_COMPLETION       : 'completionProvider',
@@ -741,6 +769,7 @@ METHOD_PROVIDERS = {
     METHOD_DECLARATION      : 'declarationProvider',
     METHOD_TYPEDEF          : 'typeDefinitionProvider',
     METHOD_DOC_SYMBOLS      : 'documentSymbolProvider',
+    METHOD_FORMAT_DOC       : 'documentFormattingProvider',
 
     #METHOD_WS_SYMBOLS       : '',
 }
@@ -886,7 +915,7 @@ class CompletionMan:
 
         # find position of main edit and new 'text'
         if item.textEdit:
-            x1,y1,x2,y2 = CompletionMan.range2carets(item.textEdit.range)
+            x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
             text = item.textEdit.newText
         else: # no textEdit, just using .label
             _carets = ed.get_carets()
@@ -929,8 +958,7 @@ class CompletionMan:
         # additinal edits
         if item.additionalTextEdits:
             for edit in item.additionalTextEdits:
-                x1,y1,x2,y2 = CompletionMan.range2carets(item.textEdit.range)
-                ed.replace(x1,y1,x2,y2, item.textEdit.newText)
+                EditorDoc.apply_edit(ed, edit)
 
 
     def _get_word(self, x, y):
@@ -954,10 +982,6 @@ class CompletionMan:
 
     def _isword(self, s):
         return s not in ' \t'+self._nonwords
-
-    def range2carets(range):
-        #x1,y1,x2,y2
-        return (range.start.character, range.start.line,  range.end.character, range.end.line,)
 
 
 ### http.client.parse_headers, from  https://github.com/python/cpython/blob/3.9/Lib/http/client.py

@@ -397,3 +397,11 @@ class Registration(BaseModel):
     method: str
     registerOptions: t.Optional[t.Any]
 
+
+class FormattingOptions(BaseModel):
+    tabSize: int
+    insertSpaces: bool
+    trimTrailingWhitespace: t.Optional[bool]
+    insertFinalNewline: t.Optional[bool]
+    trimFinalNewlines: t.Optional[bool]
+

@@ -402,6 +402,12 @@ class Command:
         if doc and doc.lang:
             doc.lang.request_typedef_loc(doc)
 
+    @command
+    def call_format_doc(self):
+        doc = self.book.get_doc(ed)
+        if doc and doc.lang:
+            doc.lang.request_format_doc(doc)
+
 
     def dbg_call_hierarchy_in(self):
         doc = self.book.get_doc(ed)

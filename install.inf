@@ -52,6 +52,11 @@ section=commands
 caption=LSP Client\Type definition
 method=call_typedef
 
+[item28]
+section=commands
+caption=LSP Client\Format document
+method=call_format_doc
+
 
 ;[item30]
 ;section=commands
