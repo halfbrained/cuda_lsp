@@ -439,10 +439,11 @@ class Command:
                 file_open('')
             import pprint
             try:
-                ed.set_text_all(pprint.pformat(lang._dbg_msgs[ind].dict(), width=256))
+                ed.set_text_all(pprint.pformat(lang._dbg_msgs[ind].dict(), width=100))
             except:
                 j = {k:str(v) for k,v in lang._dbg_msgs[ind].dict().items()}
-                ed.set_text_all(pprint.pformat(j, width=256))
+                ed.set_text_all(pprint.pformat(j, width=100))
+            ed.set_prop(PROP_LEXER_FILE, 'Python')
 
     def dbg_show_docs(self):
         items = [f'{doc.lang}: {doc}' for doc in self.book.get_docs()]
