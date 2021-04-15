@@ -133,15 +133,7 @@ class SignatureHelp(Event):
             return None
         active_sig = self.activeSignature or 0
         sig = self.signatures[active_sig]
-        params = sig.parameters
-        #  names of params if all strings
-        if (params
-                and  len(params) > 0
-                and  all(isinstance(param.label, str)  for param in params)):
-            return ', '.join((param.label for param in params))
-        # ... or just label of signature
-        else:
-            return sig.label
+        return sig.label
 
 
 class Definition(Event):

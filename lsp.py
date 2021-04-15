@@ -269,7 +269,7 @@ class Command:
         doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
             doc.lang.request_sighelp(doc)
-            return ''
+            return True
 
     def on_goto_def(self, ed_self):
         self.call_definition(ed_self)

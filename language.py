@@ -288,6 +288,7 @@ class Language:
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
                     hint = msg.get_hint_str()
                     if hint:
+                        hint = ',\n\t'.join(hint.split(', '))
                         msg_status_alt(hint, 8) # 8 - default duration
 
         #GOTOs
