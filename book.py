@@ -185,6 +185,25 @@ class EditorDoc:
     def get_docid(self):
         return structs.TextDocumentIdentifier(uri=self.uri)
 
+    def get_ed_format_opts(self):
+        return structs.FormattingOptions(
+            tabSize                 = self.ed.get_prop(PROP_TAB_SIZE),
+            insertSpaces            = self.ed.get_prop(PROP_TAB_SPACES),
+            trimTrailingWhitespace  = self.ed.get_prop(PROP_SAVING_TRIM_SPACES),
+            insertFinalNewline      = self.ed.get_prop(PROP_SAVING_FORCE_FINAL_EOL),
+            trimFinalNewlines       = self.ed.get_prop(PROP_SAVING_TRIM_FINAL_EMPTY_LINES),
+        )
+
+    def get_selection_range(self):
+        """ returns: single range, None on error
+        """
+        carets = self.ed.get_carets()
+        if len(carets) == 1:
+            x0,y0, x1,y1 = carets[0]
+            _start = structs.Position(line=y0, character=x0)
+            _end = structs.Position(line=y1, character=x1)
+            return structs.Range(start=_start, end=_end)
+
     #def apply_edit(ed: Editor, edit: TextEdit):
     def apply_edit(ed, edit):
         x1,y1,x2,y2 = EditorDoc.range2carets(edit.range)
@@ -193,3 +212,4 @@ class EditorDoc:
     def range2carets(range):
         #x1,y1,x2,y2
         return (range.start.character, range.start.line,  range.end.character, range.end.line,)
+

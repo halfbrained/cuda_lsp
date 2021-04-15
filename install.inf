@@ -4,7 +4,7 @@ desc=Support LSP (Language Server Protocol) servers, for different languages
 type=cudatext-plugin
 subdir=cuda_lsp
 homepage=https://github.com/halfbrained/cuda_lsp
-api=1.0.381
+api=1.0.382
 
 [item2]
 section=events
@@ -56,6 +56,11 @@ method=call_typedef
 section=commands
 caption=LSP Client\Format document
 method=call_format_doc
+
+[item29]
+section=commands
+caption=LSP Client\Format selection
+method=call_format_sel
 
 
 ;[item30]

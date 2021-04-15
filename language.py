@@ -291,7 +291,9 @@ class Language:
                     hint = msg.get_hint_str()
                     if hint:
                         hint = ',\n\t'.join(hint.split(', '))
-                        msg_status_alt(hint, 8) # 8 - default duration
+                        caret_x, caret_y = _reqpos.carets[0][:2]
+                        # 8 - default duration
+                        msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
 
         #GOTOs
         elif msgtype in GOTO_EVENT_TYPES:
@@ -564,15 +566,22 @@ class Language:
                 self.send_changes(eddoc)
 
                 docid = eddoc.get_docid()
-                options = FormattingOptions(
-                    tabSize                 = eddoc.ed.get_prop(PROP_TAB_SIZE),
-                    insertSpaces            = eddoc.ed.get_prop(PROP_TAB_SPACES),
-                    trimTrailingWhitespace  = eddoc.ed.get_prop(PROP_SAVING_TRIM_SPACES),
-                    insertFinalNewline      = eddoc.ed.get_prop(PROP_SAVING_FORCE_FINAL_EOL),
-                    trimFinalNewlines       = eddoc.ed.get_prop(PROP_SAVING_TRIM_FINAL_EMPTY_LINES),
-                )
+                options = eddoc.get_ed_format_opts()
                 id = self.client.formatting(text_document=docid, options=options)
                 self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
+
+    def request_format_sel(self, eddoc):
+        if self.client.is_initialized:
+            opts = self.scfg.method_opts(METHOD_FORMAT_DOC, eddoc)
+            if opts is not None:
+                self.send_changes(eddoc)
+
+                range_ = eddoc.get_selection_range()
+                if range_:
+                    docid = eddoc.get_docid()
+                    options = eddoc.get_ed_format_opts()
+                    id = self.client.range_formatting(text_document=docid, range=range_, options=options)
+                    self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
 
 
     def doc_symbol(self, eddoc):
@@ -743,6 +752,7 @@ METHOD_DECLARATION      = 'textDocument/declaration'
 METHOD_TYPEDEF          = 'textDocument/typeDefinition'
 METHOD_DOC_SYMBOLS      = 'textDocument/documentSymbol'
 METHOD_FORMAT_DOC       = 'textDocument/formatting'
+METHOD_FORMAT_SEL       = 'textDocument/rangeFormatting'
 
 CAPABILITY_DID_OPEN         = 'textDocument.didOpen'
 CAPABILITY_DID_CLOSE        = 'textDocument.didClose'
@@ -758,6 +768,7 @@ CAPABILITY_DECLARATION      = 'textDocument.declaration'
 CAPABILITY_TYPEDEF          = 'textDocument.typeDefinition'
 CAPABILITY_DOC_SYMBOLS      = 'textDocument.documentSymbol'
 CAPABILITY_FORMAT_DOC       = 'textDocument.formatting'
+CAPABILITY_FORMAT_SEL       = 'textDocument.rangeFormatting'
 
 METHOD_PROVIDERS = {
     METHOD_COMPLETION       : 'completionProvider',
@@ -770,6 +781,7 @@ METHOD_PROVIDERS = {
     METHOD_TYPEDEF          : 'typeDefinitionProvider',
     METHOD_DOC_SYMBOLS      : 'documentSymbolProvider',
     METHOD_FORMAT_DOC       : 'documentFormattingProvider',
+    METHOD_FORMAT_DOC       : 'documentRangeFormattingProvider',
 
     #METHOD_WS_SYMBOLS       : '',
 }

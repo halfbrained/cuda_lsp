@@ -408,6 +408,12 @@ class Command:
         if doc and doc.lang:
             doc.lang.request_format_doc(doc)
 
+    @command
+    def call_format_sel(self):
+        doc = self.book.get_doc(ed)
+        if doc and doc.lang:
+            doc.lang.request_format_sel(doc)
+
 
     def dbg_call_hierarchy_in(self):
         doc = self.book.get_doc(ed)

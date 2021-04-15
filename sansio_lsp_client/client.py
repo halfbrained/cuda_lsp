@@ -53,6 +53,7 @@ from .structs import (
     ResponseList,
     SymbolInformation,
     FormattingOptions,
+    Range,
 )
 from .io_handler import _make_request, _parse_messages, _make_response
 
@@ -298,7 +299,8 @@ class Client:
             result_type = t.get_type_hints(MCallHierarchItems)['result']
             event = MCallHierarchItems(result=parse_obj_as(result_type, response.result))
 
-        elif request.method == "textDocument/formatting":
+        elif (request.method == "textDocument/formatting"
+                or request.method == "textDocument/rangeFormatting"):
             result_type = t.get_type_hints(DocumentFormatting)['result']
             event = DocumentFormatting(result=parse_obj_as(result_type, response.result))
             event.message_id = response.id
@@ -581,5 +583,22 @@ class Client:
         }
         return self._send_request(
             method="textDocument/formatting",
+            params=params,
+        )
+
+    def range_formatting(
+            self,
+            text_document: TextDocumentIdentifier,
+            range: Range,
+            options: FormattingOptions,
+    ) -> int:
+        assert self._state == ClientState.NORMAL
+        params = {
+            "textDocument": text_document.dict(),
+            "range": range.dict(),
+            "options": options.dict(),
+        }
+        return self._send_request(
+            method="textDocument/rangeFormatting",
             params=params,
         )
