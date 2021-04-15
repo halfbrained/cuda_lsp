@@ -29,12 +29,15 @@ from .util import (
 
 LOG = False
 LOG_NAME = 'LSP'
+SERVER_RESPONSE_DIALOG_LEN = 80
 
 # considering all 'lsp_*.json' - server configs
 dir_settings = app_path(APP_DIR_SETTINGS)
 fn_config = os.path.join(dir_settings, 'cuda_lsp.json')
 fn_opt_descr = os.path.join(_plugin_dir, 'readme', 'options_description.md')
 
+SEVERS_SHUTDOWN_MAX_TIME = 2 # seconds
+SEVERS_SHUTDOWN_CHECK_PERIOD = 0.1 # seconds
 
 opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
@@ -313,13 +316,13 @@ class Command:
 
         _start = time.time()
         while self._langs:
-            time.sleep(0.1)
+            time.sleep(SEVERS_SHUTDOWN_CHECK_PERIOD)
             for key,lang in list(self._langs.items()):
                 lang.process_queues()
                 if lang.is_client_exited():
                     del self._langs[key]
 
-            if time.time() - _start > 2:
+            if time.time() - _start > SEVERS_SHUTDOWN_MAX_TIME:
                 break
 
         os.waitpid(-1, os.WNOHANG) # -1 -- any child
@@ -431,18 +434,20 @@ class Command:
             msg_status(f'No messages for server of current document')
             return
 
-        names = ['msg|' + str(msg)[:80]+'...\t'+type(msg).__name__ for msg in lang._dbg_msgs]
+        names = ['msg|' + str(msg)[:SERVER_RESPONSE_DIALOG_LEN]+'...\t'+type(msg).__name__
+                        for msg in lang._dbg_msgs]
         ind = dlg_menu(DMENU_LIST, names)
 
         if ind is not None:
+            max_output_width = max(80, ed.get_prop(PROP_SCROLL_HORZ_INFO)['page'])
             if ed.get_filename():
                 file_open('')
             import pprint
             try:
-                ed.set_text_all(pprint.pformat(lang._dbg_msgs[ind].dict(), width=100))
+                ed.set_text_all(pprint.pformat(lang._dbg_msgs[ind].dict(), width=max_output_width))
             except:
                 j = {k:str(v) for k,v in lang._dbg_msgs[ind].dict().items()}
-                ed.set_text_all(pprint.pformat(j, width=100))
+                ed.set_text_all(pprint.pformat(j, width=max_output_width))
             ed.set_prop(PROP_LEXER_FILE, 'Python')
 
     def dbg_show_docs(self):
