@@ -12,13 +12,13 @@ Basic config for a python LSP server "pyls" would look like this:
 {
     // map lexers to language ids
     "lexers": {
-    	"Python": "python",
-    	"Rainbow python": "python"
+        "Python": "python",
+        "Rainbow python": "python"
     },
     // command to start LSP server
-    "cmd_windows": 	["C:\\Python_folder\\pyls.exe", "--param", "param3"],
-   	"cmd_unix": 	["pyls"],
-   	"cmd_macos": 	["pyls"]
+    "cmd_windows":  ["C:\\Python_folder\\pyls.exe", "--param", "param3"],
+    "cmd_unix":     ["pyls"],
+    "cmd_macos":    ["pyls"]
 }
 
 
