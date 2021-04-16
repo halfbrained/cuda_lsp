@@ -43,6 +43,13 @@ opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
 opt_send_change_on_request = False
 opt_hover_max_lines = 10
+opt_hover_additional_comands = [
+    "Definition",
+    "References",
+    "Implementation",
+    "Declaration",
+    "Type definition",
+]
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
@@ -56,10 +63,10 @@ file:///util.py
 https://microsoft.github.io/language-server-protocol/specifications/specification-current/#exit
 
 #TODO
-* python server scans unncesasry files
 * print server stderr to Output panel
 * test hover with OS scaled
 * handle lite lexers
+* test older python
 
 * ! kill css server properly
 
@@ -88,7 +95,6 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 + Document:
     codeAction
     codeLens
-    format
     rename
     onTypeFormatting
     selectionRange
@@ -129,7 +135,22 @@ class Command:
 
         self._load_config()
 
-        # dbg
+        # hover dlg calls these with "caret" named param, caret is tuple(caretx, carety)
+        self._hint_cmds = {
+            'Definition':   self.call_definition,
+            'References':   self.call_references,
+            'Implementation': self.call_implementation,
+            'Declaration':  self.call_declaration,
+            'Type definition': self.call_typedef,
+        }
+        ### filter commands by option: opt_hover_additional_comands
+        # to lower case for case-insensitive comparison
+        _user_cmds = {name.lower() for name in opt_hover_additional_comands}
+        for name in self._hint_cmds:
+            if name.lower() not in _user_cmds: # if removed by user
+                self._hint_cmds[name] = None # None values are dimmed in hover
+
+        ### dbg
         if opt_manual_didopen:
             # first call only starts server, subsequent - send didOpen
             app_proc(PROC_SET_SUBCOMMANDS, 'cuda_lsp;force_didopen;LSP-Open-Doc\t')
@@ -258,11 +279,12 @@ class Command:
         # require Control pressed
         if app_proc(PROC_GET_KEYSTATE, '') != 'c':
             return
-        if Hint.is_under_cursor():      return
+        if Hint.is_under_cursor()  or  Hint.is_visible():      return
 
         doc = self.book.get_doc(ed_self)
-        if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
-            doc.lang.on_hover(doc, x=x, y=y)
+        if ed_self.get_prop(PROP_FOCUSED):
+            caret = ed_self.convert(CONVERT_PIXELS_TO_CARET, x, y, "")
+            self.call_hover(ed_self, caret)
 
     @command
     def on_func_hint(self, ed_self):
@@ -353,7 +375,7 @@ class Command:
                     cfg['work_dir'] = work_dir
 
                     try:
-                        lang = Language(cfg)
+                        lang = Language(cfg, cmds=self._hint_cmds)
                     except ValidationError:
                         servers_cfgs.remove(cfg) # dont nag on every on_open
                         raise
@@ -366,41 +388,45 @@ class Command:
         return self._langs.get(langid)
 
     @command
-    def call_hover(self):
-        doc = self.book.get_doc(ed)
-        if doc and doc.lang:
-            doc.lang.on_hover(doc)
-
-    @command
-    def call_definition(self, ed_self=None):
+    def call_hover(self, ed_self=None, caret=None):
+        """ caret - if present - used instead of actual caret (for hovered stuff)
+        """
         ed_self = ed_self or ed
         doc = self.book.get_doc(ed_self)
         if doc and doc.lang:
-            doc.lang.request_definition_loc(doc)
+            doc.lang.on_hover(doc, caret)
 
     @command
-    def call_references(self):
-        doc = self.book.get_doc(ed)
+    def call_definition(self, ed_self=None, caret=None):
+        ed_self = ed_self or ed
+        doc = self.book.get_doc(ed_self)
         if doc and doc.lang:
-            doc.lang.request_references_loc(doc)
+            doc.lang.request_definition_loc(doc, caret)
 
     @command
-    def call_implementation(self):
+    def call_references(self, caret=None):
         doc = self.book.get_doc(ed)
         if doc and doc.lang:
-            doc.lang.request_implementation_loc(doc)
+            doc.lang.request_references_loc(doc, caret)
 
     @command
-    def call_declaration(self):
+    def call_implementation(self, caret=None):
         doc = self.book.get_doc(ed)
         if doc and doc.lang:
-            doc.lang.request_declaration_loc(doc)
+            doc.lang.request_implementation_loc(doc, caret)
 
     @command
-    def call_typedef(self):
+    def call_declaration(self, caret=None):
         doc = self.book.get_doc(ed)
         if doc and doc.lang:
-            doc.lang.request_typedef_loc(doc)
+            doc.lang.request_declaration_loc(doc, caret)
+
+    @command
+    def call_typedef(self, caret=None):
+        doc = self.book.get_doc(ed)
+        if doc and doc.lang:
+            doc.lang.request_typedef_loc(doc, caret)
+
 
     @command
     def call_format_doc(self):
@@ -430,12 +456,6 @@ class Command:
         doc = self.book.get_doc(ed)
         if doc and doc.lang:
             doc.lang.workspace_symbol(doc)
-
-
-    def dbg_signature(self):
-        doc = self.book.get_doc(ed)
-        if doc and doc.lang:
-            doc.lang.request_sighelp(doc)
 
 
     def dbg_show_msg(self, show_bytes=False):
@@ -499,27 +519,13 @@ class Command:
         lang.on_open(doc)
         doc.update(lang=lang)
 
-    @command
-    def caret_definition(self, caret_str):
-        """ caret_str: string - '3|39' - caretx|carety
-        """
-        ed_self = Editor(ed.get_prop(PROP_HANDLE_SELF))
-
-        caret = list(map(int, caret_str.split('|')))
-        caret_px = ed_self.convert(CONVERT_CARET_TO_PIXELS, *caret)
-        if caret_px:
-            x,y = caret_px
-            doc = self.book.get_doc(ed_self)
-            if doc and doc.lang:
-                doc.lang.request_definition_loc(doc, x=x, y=y)
-
-
     def _load_config(self):
         global opt_enable_mouse_hover
         global opt_root_dir_source
         global opt_manual_didopen
         global opt_send_change_on_request
         global opt_hover_max_lines
+        global opt_hover_additional_comands
 
         # general cfg
         if os.path.exists(fn_config):
@@ -537,6 +543,7 @@ class Command:
 
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
+            opt_hover_additional_comands = j.get('hover_additional_comands', opt_hover_additional_comands)
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', None)
@@ -586,8 +593,9 @@ class Command:
             j = {
                 'root_dir_source': opt_root_dir_source,
                 'send_change_on_request': opt_send_change_on_request,
-                'hover_dlg_max_lines': opt_hover_max_lines,
                 'enable_mouse_hover': opt_enable_mouse_hover,
+                'hover_dlg_max_lines': opt_hover_max_lines,
+                'hover_additional_comands': opt_hover_additional_comands,
             }
             if opt_manual_didopen is not None:
                 j['manual_didopen'] = opt_manual_didopen
@@ -663,5 +671,4 @@ servers_cfgs = []
 #},
 ]
 """
-
 

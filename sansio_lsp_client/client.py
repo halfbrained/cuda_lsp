@@ -124,6 +124,9 @@ CAPABILITIES = {
         'formatting': {
             'dynamicRegistration': True
         },
+        'rangeFormatting': {
+            'dynamicRegistration': True
+        },
 
         'documentSymbol': {  # Document Symbols Request
             'hierarchicalDocumentSymbolSupport': True,

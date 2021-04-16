@@ -7,6 +7,7 @@ import cudatext as ct
 
 ed = ct.ed
 dlg_proc = ct.dlg_proc
+statusbar_proc = ct.statusbar_proc
 
 FORM_W = 550
 FORM_H = 350
@@ -30,12 +31,19 @@ def cursor_dist(pos):
     dist_sqr = (pos[0]-cursor_pos[0])**2 + (pos[1]-cursor_pos[1])**2
     return dist_sqr**0.5
 
+# cant invoke method on 'Hint' class
+def hint_callback(id_dlg, id_ctl, data='', info=''):
+    Hint.on_widget_click(id_ctl, info)
+
+
 class Hint:
     """ Short-lived dialog with 'Editor', hidden when mouse leaves it
     """
     h = None
     theme_name = None
     current_caret = None
+    def func(*args, **vargs):
+        print(f'**** dlg innner')
 
     @classmethod
     def init_form(cls):
@@ -51,6 +59,10 @@ class Hint:
 
         colors = ct.app_proc(ct.PROC_THEME_UI_DICT_GET, '')
         color_form_bg = colors['TabBorderActive']['color']
+        cls.color_btn_font = colors['ButtonFont']['color']
+        cls.color_btn_back = colors['ButtonBgPassive']['color']
+        cls.color_btn_font_disabled = colors['ButtonFontDisabled']['color']
+        cls.color_btn_back_disabled = colors['ButtonBgDisabled']['color']
 
         dlg_proc(h, ct.DLG_PROP_SET, prop={
                 'w': FORM_W + 2*FORM_GAP,
@@ -60,17 +72,18 @@ class Hint:
                 #'on_mouse_exit': cls.dlgcolor_mouse_exit,
                 })
 
-        n = dlg_proc(h, ct.DLG_CTL_ADD, 'button_ex')
-        dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
+        cls._n_sb = dlg_proc(h, ct.DLG_CTL_ADD, 'statusbar')
+        dlg_proc(h, ct.DLG_CTL_PROP_SET, index=cls._n_sb, prop={
                 'align': ct.ALIGN_BOTTOM,
-                #'sp_a': FORM_GAP,
+                'sp_l': 1,
+                'sp_r': 1,
+                'sp_b': 1,
                 'h': BUTTON_H,
                 #'w': 128,
                 #'w_max': 128,
-                'on_change': cls.on_definition_click,
                 })
-        h_def = dlg_proc(h, ct.DLG_CTL_HANDLE, index=n)
-        ct.button_proc(h_def, ct.BTN_SET_TEXT, 'Go to Definition')
+        cls._h_sb = dlg_proc(h, ct.DLG_CTL_HANDLE, index=cls._n_sb)
+        ct.button_proc(cls._h_sb, ct.BTN_SET_TEXT, 'Go to Definition')
 
         n = dlg_proc(h, ct.DLG_CTL_ADD, 'editor')
         dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
@@ -94,7 +107,7 @@ class Hint:
 
     # language - from deprecated 'MarkedString'
     @classmethod
-    def show(cls, text, caret, cursor_loc_start, markupkind=None, language=None):
+    def show(cls, text, caret, cursor_loc_start, markupkind=None, language=None, caret_cmds=None):
         if not text:
             return
 
@@ -159,15 +172,44 @@ class Hint:
                 'h': h,
                 })
 
+        cls.caret_cmds = caret_cmds
+        if caret_cmds:
+            cls.fill_cmds(caret_cmds, w)
+
         # first - large delay, after - smaller
         ct.timer_proc(ct.TIMER_START_ONE, Hint.hide_check_timer, 750, tag='initial')
         dlg_proc(cls.h, ct.DLG_SHOW_NONMODAL)
 
     @classmethod
-    def on_definition_click(cls, id_dlg, id_ctl, data='', info=''):
-        if cls.current_caret:
-            caret_str = '|'.join(map(str, cls.current_caret))
-            ct.app_proc(ct.PROC_EXEC_PLUGIN, 'cuda_lsp,caret_definition,' + caret_str)
+    def fill_cmds(cls, cmds, width):
+        statusbar_proc(cls._h_sb, ct.STATUSBAR_DELETE_ALL)
+
+        cellwidth = int(width/len(cmds)) + 1
+        callback_fstr = 'module=cuda_lsp.dlg;func=hint_callback;info="{}";'
+        for caption,cmd in cmds.items():
+            cellind = statusbar_proc(cls._h_sb, ct.STATUSBAR_ADD_CELL, index=-1)
+            statusbar_proc(cls._h_sb, ct.STATUSBAR_SET_CELL_TEXT, index=cellind, value=caption)
+            statusbar_proc(cls._h_sb, ct.STATUSBAR_SET_CELL_SIZE, index=cellind, value=cellwidth)
+
+            if cmd:
+                bg,fg = cls.color_btn_back,  cls.color_btn_font
+
+                callback = callback_fstr.format(caption)
+                statusbar_proc(cls._h_sb, ct.STATUSBAR_SET_CELL_CALLBACK, index=cellind, value=callback)
+            else:
+                bg,fg = cls.color_btn_back_disabled,  cls.color_btn_font_disabled
+
+            statusbar_proc(cls._h_sb, ct. STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg)
+            statusbar_proc(cls._h_sb, ct. STATUSBAR_SET_CELL_COLOR_FONT, index=cellind, value=fg)
+
+
+    @classmethod
+    def on_widget_click(cls, n, info):
+        if n == cls._n_sb:
+            f = cls.caret_cmds.get(info)
+            if f:
+                f(caret=cls.current_caret)
+
 
     @classmethod
     def set_max_lines(cls, nlines):

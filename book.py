@@ -153,14 +153,12 @@ class EditorDoc:
     def get_verdoc(self):
         return structs.VersionedTextDocumentIdentifier(uri=self.uri, version=self.ver)
 
-    def get_docpos(self, x=None, y=None):
-        if x is None or y is None: # caret pos
+    def get_docpos(self, caret=None):
+        if caret is None: # caret pos
             x1, y1, _x2, _y2 = self.ed.get_carets()[0]
 
         else:  # mouse pos
-            res = self.ed.convert(CONVERT_PIXELS_TO_CARET, x, y, "")
-            if res is None:     return
-            x1, y1 = res
+            x1, y1 = caret
             # is after text
             tl = self.ed.get_text_line(y1)
             if x1 >= len(tl):       return

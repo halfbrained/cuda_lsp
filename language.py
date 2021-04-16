@@ -81,8 +81,9 @@ RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
 
 class Language:
-    def __init__(self, cfg):
+    def __init__(self, cfg, cmds=None):
         self._cfg = cfg
+        self._caret_cmds = cmds # {caption -> callable}
 
         self.langids = cfg['langids']
         self.lang_str = ', '.join([langid2lex(lid) for lid in self.langids])
@@ -278,10 +279,12 @@ class Language:
                         # can be a list (supposedly)
                         markupkind = getattr(first_item, 'kind', None)
 
+                    filtered_cmds = self.scfg.filter_commands(self._caret_cmds)
                     Hint.show(msg.m_str(),
                             caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
                             markupkind=markupkind,
-                            language=getattr(first_item, 'language', None)
+                            language=getattr(first_item, 'language', None),
+                            caret_cmds=filtered_cmds,
                     )
 
         elif msgtype == events.SignatureHelp:
@@ -416,14 +419,14 @@ class Language:
                 self.client.did_save(text_document=docid, text=text)
 
 
-    def _action_by_name(self, method_name, eddoc, x=None, y=None):
+    def _action_by_name(self, method_name, eddoc, caret=None):
         if self.client.is_initialized:
             opts = self.scfg.method_opts(method_name, eddoc)
             if opts is None:
                 msg_status(f'Method is not supported by server: {method_name}')
                 return None,None
 
-            docpos = eddoc.get_docpos(x, y)
+            docpos = eddoc.get_docpos(caret)
             if docpos is None: # invalid caret position
                 return None,None
 
@@ -450,11 +453,10 @@ class Language:
             compl.do_complete(message_id, snippet_text, items)
 
 
-    def on_hover(self, eddoc, x=None, y=None):
+    def on_hover(self, eddoc, caret):
         """ just sends request to server, dsiplaying stuff in 'dlg.py/Hint'
-            x,y - mouse editor-related coords.
         """
-        id, pos = self._action_by_name(METHOD_HOVER, eddoc, x=x, y=y)
+        id, pos = self._action_by_name(METHOD_HOVER, eddoc, caret)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
@@ -527,37 +529,37 @@ class Language:
         dlg_menu(DMENU_LIST_ALT, dlg_items, caption='Go to symbol')
 
 
-
-    # GOTOs
     def request_sighelp(self, eddoc):
         id, pos = self._action_by_name(METHOD_SIG_HELP, eddoc)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
-    def request_definition_loc(self, eddoc, x=None, y=None):
-        id, pos = self._action_by_name(METHOD_DEFINITION, eddoc, x=x, y=y)
+    # GOTOs
+    def request_definition_loc(self, eddoc, caret=None):
+        id, pos = self._action_by_name(METHOD_DEFINITION, eddoc, caret=caret)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
-    def request_references_loc(self, eddoc):
-        id, pos = self._action_by_name(METHOD_REFERENCES, eddoc)
+    def request_references_loc(self, eddoc, caret=None):
+        id, pos = self._action_by_name(METHOD_REFERENCES, eddoc, caret=caret)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
-    def request_implementation_loc(self, eddoc):
-        id, pos = self._action_by_name(METHOD_IMPLEMENTATION, eddoc)
+    def request_implementation_loc(self, eddoc, caret=None):
+        id, pos = self._action_by_name(METHOD_IMPLEMENTATION, eddoc, caret=caret)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
-    def request_declaration_loc(self, eddoc):
-        id, pos = self._action_by_name(METHOD_DECLARATION, eddoc)
+    def request_declaration_loc(self, eddoc, caret=None):
+        id, pos = self._action_by_name(METHOD_DECLARATION, eddoc, caret=caret)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
-    def request_typedef_loc(self, eddoc):
-        id, pos = self._action_by_name(METHOD_TYPEDEF, eddoc)
+    def request_typedef_loc(self, eddoc, caret=None):
+        id, pos = self._action_by_name(METHOD_TYPEDEF, eddoc, caret=caret)
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
+
 
     def request_format_doc(self, eddoc):
         if self.client.is_initialized:
@@ -883,6 +885,18 @@ class ServerConfig:
         # checking because C# gives empty selector: just by scheme -- scheme is ignored
         # 'True' if have valid condition
         return bool(language) or bool(pattern)
+
+    def filter_commands(self, cmds):
+        # 'textDocument/didOpen' => 'didopen'
+        supported_names = {reg.method.split('/')[-1].lower() for reg in self.capabs}
+        res = {**cmds}
+        for name in cmds:
+            # 'Type definition' => 'typedefinition'
+            name_tmp = name.lower().replace(' ', '')
+            if name_tmp not in supported_names:
+                print(f'* Unsupported function by server: {name}')
+                res[name] = None  # None denotes unsupported command - dimmed in hover dlg
+        return res
 
 
 class CompletionMan:
