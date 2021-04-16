@@ -1,32 +1,47 @@
 Plugin for CudaText.
 Adds support for Language Server Protocol (LSP) servers.
-
 For each language server needs to be installed separately.
 
 To use a specific server, at least a command to start the server process and a map of lexers
-to supported language identifier* needs to be provided - add a config to the directory: 
-CudaText/settings
-Config filename should be of the following format: lsp_*.json
+to supported language identifiers needs to be provided. List of language identifiers
+can be seen here:
+https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
 
-Basic config for a python LSP server "pyls" would look like this:
-{
-    // map lexers to language ids
+For each LSP server, add config to the folder "settings" (folder of user.json CudaText config).
+Config filename must be named lsp_*.json ("lsp_" prefix and ".json" suffix).
+
+
+Example for Python
+------------------
+Python LSP server can be installed in the Linux by command:
+$ pip3 install python-language-server
+It creates the script "~/.local/bin/pyls". Basic config would look like this:
+
+  {
     "lexers": {
         "Python": "python",
-        "Rainbow python": "python"
+        "RenamedPythonLexer": "python"
     },
-    // command to start LSP server
-    "cmd_windows":  ["C:\\Python_folder\\pyls.exe", "--param", "param3"],
-    "cmd_unix":     ["pyls"],
-    "cmd_macos":    ["pyls"]
-}
+    "cmd_unix": ["~/.local/bin/pyls"]
+  }
 
 
-* List of language identifiers can be seen here:
-https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
+Options
+-------
+Plugin supports 3 keys for running commands:
+- "cmd_windows" for Windows,
+- "cmd_macos" for macOS,
+- "cmd_unix" for all other OS.
+
+Each cmd-key must be a list of strings, e.g.
+  "cmd_windows": ["C:\\Python_folder\\pyls.exe", "--param", "param"],
+
+Plugin has the config file, which can be opened in CudaText by:
+"Options / Settings-plugins / LSP Client / Config".
+The possible options are listed in another text file in the LSP Client folder.
+
 
 About
 -----
-
 Author: Shovel, https://github.com/halfbrained/
 License: MIT
