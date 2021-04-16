@@ -1,2 +1,7 @@
+2021.04.15
++ add: support action "Format document"
++ add: support action "Format selection"
++ add: better work of action "Show function signature"
+
 2021.04.10
 initial
