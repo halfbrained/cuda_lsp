@@ -16,6 +16,7 @@ from .util import (
         ed_uri,
         is_ed_visible,
         command, # hides hint
+        get_visible_eds,
 
         ValidationError,
     )
@@ -89,6 +90,7 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 * markdown Editor display
 * () on functions completion?
 * 'hover' dialog -- add  context menu - apply any lexer
+* separate log panel for server's `LogMessage`
 
 
 #TODO features
@@ -124,6 +126,20 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 
 """
 
+def get_project_dir():
+    """ choose root directory for server: .opt_root_dir_source
+    """
+    import cuda_project_man
+
+    path = None
+    if opt_root_dir_source == 0: # project file dir
+        path = cuda_project_man.project_variables()["ProjDir"] or None
+    elif opt_root_dir_source == 1: # first node
+        _nodes = cuda_project_man.global_project_info.get('nodes')
+        path = _nodes[0] if _nodes else None
+    return path
+
+
 class Command:
 
     def __init__(self):
@@ -132,6 +148,7 @@ class Command:
         self._sesh_eds = []
         self._langs = {} # langid -> Language
         self._book = None
+        self._project_dir = None
 
         self._load_config()
 
@@ -309,6 +326,7 @@ class Command:
         """ when server initialized properly (handshake done) - send 'didOpen'
                 for documents of this server
                 (for visible editors, others - from on_tab_change())
+            * if couldn't find - got shutdown before initted
         """
         for lang in self._langs.values():
             if lang.name == name:
@@ -316,8 +334,6 @@ class Command:
                     if doc.lang is None  and  is_ed_visible(doc.ed):
                         self.on_open(doc.ed)
                 break # found initted lang
-        else:
-            raise Exception('Couldn\'t find initted lang: '+str(name))
 
     def on_state(self, ed_self, state):
         if state == APPSTATE_SESSION_LOAD_BEGIN: # started
@@ -331,6 +347,15 @@ class Command:
             for editor in eds:
                 self._do_on_open(editor)
 
+        elif state == APPSTATE_PROJECT:
+            new_project_dir = get_project_dir()
+            if self._project_dir != new_project_dir:
+                print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; restarting servers...')
+                self.shutdown_all_servers()
+
+                # on_open visible eds
+                for edt in get_visible_eds():
+                    self.on_open(edt)
 
     def on_exit(self, *args, **vargs):
         # start servers shutdown
@@ -364,16 +389,9 @@ class Command:
             for cfg in servers_cfgs:
                 if langid in cfg.get('langids', []):
                     from .language import Language
-                    import cuda_project_man
 
-                    # choose root directory for server: .opt_root_dir_source
-                    work_dir = None
-                    if opt_root_dir_source == 0: # project file dir
-                        work_dir = cuda_project_man.project_variables()["ProjDir"] or None
-                    elif opt_root_dir_source == 1: # first node
-                        _nodes = cuda_project_man.global_project_info.get('nodes')
-                        work_dir = _nodes[0] if _nodes else None
-                    cfg['work_dir'] = work_dir
+                    self._project_dir = get_project_dir()
+                    cfg['work_dir'] = self._project_dir
 
                     try:
                         lang = Language(cfg, cmds=self._hint_cmds)
@@ -489,12 +507,18 @@ class Command:
 
     @command
     # for project folder change
-    def shutdown_server(self):
-        names = list(self._langs)
-        names.sort()
-        ind = dlg_menu(DMENU_LIST, names, caption='Shutdown server')
-        if ind is not None:
-            lang = self._langs.pop(names[ind])
+    def shutdown_server(self, name=None):
+        # choice dlg
+        if name == None:
+            names = list(self._langs)
+            names.sort()
+            ind = dlg_menu(DMENU_LIST, names, caption='Shutdown server')
+            if ind is not None:
+                name = names[ind]
+
+        # shutting down and clearing remains
+        if name is not None:
+            lang = self._langs.pop(name)
             lang.shutdown()
 
             # remove referencees to Language object
@@ -507,6 +531,9 @@ class Command:
             for langid in lang_ids:
                 del self._langs[langid]
 
+    def shutdown_all_servers(self):
+        for name in list(self._langs):
+            self.shutdown_server(name=name)
 
     def force_didopen(self, *args, **vargs):
         ed_self = Editor(ed.get_prop(PROP_HANDLE_SELF))

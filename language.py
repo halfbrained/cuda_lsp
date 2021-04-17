@@ -82,11 +82,14 @@ RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
 class Language:
     def __init__(self, cfg, cmds=None):
+        self._shutting_down = None  # scheduled shutdown when not yet initialized
+
         self._cfg = cfg
         self._caret_cmds = cmds # {caption -> callable}
 
         self.langids = cfg['langids']
-        self.lang_str = ', '.join([langid2lex(lid) for lid in self.langids])
+        # unique sorted lexers
+        self.lang_str = ', '.join(sorted({langid2lex(lid) for lid in self.langids}))
         self.name = cfg['name'] # "name" from config or config filename (internal)
 
         self._server_cmd = cfg.get(CMD_OS_KEY)
@@ -126,6 +129,10 @@ class Language:
             self._start_server()
         return self._client
 
+    @property
+    def client_state_str(self):
+        return (self._client.state.name).title()  if self._client is not None else  'Not started'
+
     def is_client_exited(self):
         return self._client.state == lsp.ClientState.EXITED
 
@@ -151,6 +158,7 @@ class Language:
             self._writer = self._reader
         # not port - create stdio-process
         else:
+            print(f'{LOG_NAME}: starting server - {self.lang_str}; root: {self._work_dir}')
             try:
                 self.process = subprocess.Popen(
                     args=self._server_cmd,
@@ -180,8 +188,6 @@ class Language:
             self.err_thread.start()
 
         timer_proc(TIMER_START, self.process_queues, 100, tag='')
-
-        print(f'{LOG_NAME}: Started server: {self.lang_str}')
 
     def _err_read_loop(self):
         try:
@@ -317,6 +323,9 @@ class Language:
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
 
         elif msgtype == events.LogMessage:
+            # abandoning server - ignore logs
+            if self._shutting_down is not None:
+                return
             if msg.message == getattr(self, '_last_lsp_log', None): #WTF every log duplicated
                 return
             self._last_lsp_log = msg.message
@@ -326,7 +335,7 @@ class Language:
                 app_log(LOG_ADD, line, panel=LOG_PANEL_OUTPUT)
 
         elif msgtype == events.Shutdown:
-            print(f'{LOG_NAME}: {self.lang_str} - got shutdown response, exiting')
+            print(f'{LOG_NAME}: {self.lang_str}[{self.client_state_str}] - got shutdown response, exiting')
             self.client.exit()
             self.process_queues()
             self.exit()
@@ -338,11 +347,21 @@ class Language:
     #NOTE call immediately after adding send events, to send faster
     def process_queues(self, tag='', info=''):
         try:
+            if self._shutting_down:
+                self.shutdown()
+                self._shutting_down = False
+
+            errors = []
             while not self._read_q.empty():
                 data = self._read_q.get()
                 self._dbg_bmsgs = (self._dbg_bmsgs + [data])[-128:] # dbg
 
-                events = self.client.recv(data)
+                events = self.client.recv(data, errors=errors)
+
+                for err in errors:
+                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
+                errors.clear()
+
                 for msg in events:
                     self._on_lsp_msg(msg)
 
@@ -423,7 +442,7 @@ class Language:
         if self.client.is_initialized:
             opts = self.scfg.method_opts(method_name, eddoc)
             if opts is None:
-                msg_status(f'Method is not supported by server: {method_name}')
+                msg_status(f'{LOG_NAME}: Method is not supported by server: {method_name}')
                 return None,None
 
             docpos = eddoc.get_docpos(caret)
@@ -609,7 +628,10 @@ class Language:
 
     def shutdown(self, *args, **vargs):
         pass;       LOG and print('-- lang - shutting down')
-        self.client.shutdown()
+        if self.client.is_initialized:
+            self.client.shutdown()
+        else:
+            self._shutting_down = True
 
     def exit(self):
         if not self._closed:
@@ -894,7 +916,7 @@ class ServerConfig:
             # 'Type definition' => 'typedefinition'
             name_tmp = name.lower().replace(' ', '')
             if name_tmp not in supported_names:
-                print(f'* Unsupported function by server: {name}')
+                #print(f'* Unsupported function by server: {name}')
                 res[name] = None  # None denotes unsupported command - dimmed in hover dlg
         return res
 

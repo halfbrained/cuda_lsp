@@ -8,7 +8,7 @@
     * false - changes to the documents are sent to server after edit and a short delay (default)
     * true - sent only before requests (will delay server's analysis)
 
-* enable_mouse_hover - when 'false' - 'hover' only acessible via a command
+* enable_mouse_hover - when 'false' - 'hover' only accessible via a command
 
 * hover_dlg_max_lines - hover dialog max lines number, default is 10
 
@@ -18,8 +18,3 @@
     * "implementation"
     * "declaration"
     * "type definition"
-
-
-# Debug option
-
-* manual_didopen - if 'true' - server is not started automatically, but on first invokation of command `LSP-Open-Doc`, on next - document will be opened on the server and will work as usual. 

@@ -350,7 +350,7 @@ class Client:
         else:
             raise NotImplementedError(request)
 
-    def recv(self, data: bytes) -> t.List[Event]:
+    def recv(self, data: bytes, errors: t.Optional[list] = None) -> t.List[Event]:
         self._recv_buf += data
 
         # _parse_messages deletes consumed data from self._recv_buf
@@ -366,7 +366,8 @@ class Client:
                 else:
                     raise RuntimeError("nobody will ever see this, i hope")
             except Exception as ex:
-                print(f'RecvError: LSP: client.recv: {ex}:.........{message}')
+                if errors is not None:
+                    errors.append(ex)
 
         return events
 
