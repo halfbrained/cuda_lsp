@@ -43,7 +43,7 @@ opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
 opt_send_change_on_request = False
 opt_hover_max_lines = 10
-opt_hover_additional_comands = [
+opt_hover_additional_commands = [
     "Definition",
     "References",
     "Implementation",
@@ -143,9 +143,9 @@ class Command:
             'Declaration':  self.call_declaration,
             'Type definition': self.call_typedef,
         }
-        ### filter commands by option: opt_hover_additional_comands
+        ### filter commands by option: opt_hover_additional_commands
         # to lower case for case-insensitive comparison
-        _user_cmds = {name.lower() for name in opt_hover_additional_comands}
+        _user_cmds = {name.lower() for name in opt_hover_additional_commands}
         for name in self._hint_cmds:
             if name.lower() not in _user_cmds: # if removed by user
                 self._hint_cmds[name] = None # None values are dimmed in hover
@@ -525,7 +525,7 @@ class Command:
         global opt_manual_didopen
         global opt_send_change_on_request
         global opt_hover_max_lines
-        global opt_hover_additional_comands
+        global opt_hover_additional_commands
 
         # general cfg
         if os.path.exists(fn_config):
@@ -543,7 +543,7 @@ class Command:
 
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
-            opt_hover_additional_comands = j.get('hover_additional_comands', opt_hover_additional_comands)
+            opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', None)
@@ -595,7 +595,7 @@ class Command:
                 'send_change_on_request': opt_send_change_on_request,
                 'enable_mouse_hover': opt_enable_mouse_hover,
                 'hover_dlg_max_lines': opt_hover_max_lines,
-                'hover_additional_comands': opt_hover_additional_comands,
+                'hover_additional_commands': opt_hover_additional_commands,
             }
             if opt_manual_didopen is not None:
                 j['manual_didopen'] = opt_manual_didopen

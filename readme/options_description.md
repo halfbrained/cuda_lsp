@@ -12,7 +12,7 @@
 
 * hover_dlg_max_lines - hover dialog max lines number, default is 10
 
-* hover_additional_comands - list of additional commands to show in hover dialog; possible values:
+* hover_additional_commands - list of additional commands to show in hover dialog; possible values:
     * definition
     * references
     * implementation
