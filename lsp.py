@@ -164,8 +164,7 @@ class Command:
         return self._book
 
     def config(self):
-        if not os.path.exists(fn_config):
-            self._save_config()
+        self._save_config()
         file_open((fn_config, fn_opt_descr))
 
     #NOTE alse gets called for unsaved from session
@@ -587,21 +586,20 @@ class Command:
 
 
     def _save_config(self):
-        if not os.path.exists(fn_config):
-            import json
+        import json
 
-            j = {
-                'root_dir_source': opt_root_dir_source,
-                'send_change_on_request': opt_send_change_on_request,
-                'enable_mouse_hover': opt_enable_mouse_hover,
-                'hover_dlg_max_lines': opt_hover_max_lines,
-                'hover_additional_commands': opt_hover_additional_commands,
-            }
-            if opt_manual_didopen is not None:
-                j['manual_didopen'] = opt_manual_didopen
+        j = {
+            'root_dir_source': opt_root_dir_source,
+            'send_change_on_request': opt_send_change_on_request,
+            'enable_mouse_hover': opt_enable_mouse_hover,
+            'hover_dlg_max_lines': opt_hover_max_lines,
+            'hover_additional_commands': opt_hover_additional_commands,
+        }
+        if opt_manual_didopen is not None:
+            j['manual_didopen'] = opt_manual_didopen
 
-            with open(fn_config, 'w', encoding='utf-8') as f:
-                json.dump(j, f, indent=2)
+        with open(fn_config, 'w', encoding='utf-8') as f:
+            json.dump(j, f, indent=2)
 
     # DBG
     @property
