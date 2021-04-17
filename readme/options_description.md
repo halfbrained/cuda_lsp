@@ -22,5 +22,4 @@
 
 # Debug option
 
-* manual_didopen - if 'true' - server is not started automatically, but on first invokation 
-    of command `LSP-Open-Doc`, on next - document will be opened on the server and will work as usual. 
+* manual_didopen - if 'true' - server is not started automatically, but on first invokation of command `LSP-Open-Doc`, on next - document will be opened on the server and will work as usual. 

@@ -166,6 +166,8 @@ class Command:
     def config(self):
         self._save_config()
         file_open((fn_config, fn_opt_descr))
+        se = Editor(ed.get_prop(PROP_HANDLE_SECONDARY))
+        se.set_prop(PROP_WRAP, True)
 
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
