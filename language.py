@@ -24,6 +24,7 @@ from .util import (
         path_to_uri,
         langid2lex,
         collapse_path,
+        replace_unbracketed,
 
         ValidationError,
     )
@@ -316,7 +317,7 @@ class Language:
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
                     hint = msg.get_hint_str()
                     if hint:
-                        hint = ',\n\t'.join(hint.split(', '))
+                        hint = replace_unbracketed(hint, ',', ',\n\t', brackets={'{':'}', '[':']'})
                         caret_x, caret_y = _reqpos.carets[0][:2]
                         # 8 - default duration
                         msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)

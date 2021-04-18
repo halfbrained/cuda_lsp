@@ -68,6 +68,33 @@ def command(f):
 class ValidationError(Exception):
     pass
 
+def replace_unbracketed(s, target_char, repl, brackets):
+    depth = 0
+    start_char = None
+    end_char = None
+    result = ''
+    for c in s:
+        if c in brackets:
+            if depth == 0:
+                start_char = c
+                end_char = brackets[start_char]
+                depth += 1
+            elif c == start_char:
+                    depth += 1
+
+        elif c == end_char:
+            depth -= 1
+            if depth == 0:
+                start_char = None
+                end_char = None
+
+        elif depth == 0  and  c == target_char:
+            c = repl
+
+        result += c
+    return result
+
+
 def update_lexmap(upd):
     lex_ids.update(upd)
 
