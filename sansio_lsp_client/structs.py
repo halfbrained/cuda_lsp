@@ -405,3 +405,6 @@ class FormattingOptions(BaseModel):
     insertFinalNewline: t.Optional[bool]
     trimFinalNewlines: t.Optional[bool]
 
+class WorkspaceFolder(BaseModel):
+    uri: str
+    name: str

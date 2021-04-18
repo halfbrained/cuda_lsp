@@ -18,3 +18,5 @@
     * "implementation"
     * "declaration"
     * "type definition"
+
+* cudatext_in_py_env - add CudaText API to Python server

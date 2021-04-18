@@ -25,6 +25,7 @@ from .structs import (
     SymbolInformation,
     Registration,
     DocumentSymbol,
+    WorkspaceFolder,
 )
 
 Id = t.Union[int, str]
@@ -182,3 +183,17 @@ class RegisterCapabilityRequest(ServerRequest):
 class DocumentFormatting(Event):
     message_id: t.Optional[Id] # custom...
     result: t.Union[t.List[TextEdit], None]
+
+class WorkspaceFolders(ServerRequest):
+    result: None
+
+    def reply(self, folders: t.Optional[t.List[WorkspaceFolder]] = None) -> None:
+        """
+        Reply to the WorkspaceFolder with workspace folders.
+
+        No bytes are actually returned from this method, the reply's bytes
+        are added to the client's internal send buffer.
+        """
+        self._client._send_response(
+            id=self._id, result=[f.dict() for f in folders] if folders is not None else None
+        )

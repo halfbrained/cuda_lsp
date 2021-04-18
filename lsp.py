@@ -51,6 +51,7 @@ opt_hover_additional_commands = [
     "Declaration",
     "Type definition",
 ]
+opt_cudatext_in_py_env = False
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
@@ -554,6 +555,7 @@ class Command:
         global opt_send_change_on_request
         global opt_hover_max_lines
         global opt_hover_additional_commands
+        global opt_cudatext_in_py_env
 
         # general cfg
         if os.path.exists(fn_config):
@@ -572,6 +574,7 @@ class Command:
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
             opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
+            opt_cudatext_in_py_env = j.get('cudatext_in_py_env', opt_cudatext_in_py_env)
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', None)
@@ -601,6 +604,12 @@ class Command:
                     langids.append(langid)
                     user_lexids[lex] = langid
 
+                # add cuda/py to python server's PYTHONPATH env
+                if opt_cudatext_in_py_env  and  'python' in langids:
+                    env_paths = j.setdefault('env_paths', {})
+                    py_env_paths = env_paths.setdefault('PYTHONPATH', [])
+                    py_env_paths.append(app_path(APP_DIR_PY))
+
                 if not langids:
                     print(f'NOTE: {LOG_NAME}: sever config error - no associated lexers: {path}')
                     continue
@@ -623,6 +632,7 @@ class Command:
             'enable_mouse_hover': opt_enable_mouse_hover,
             'hover_dlg_max_lines': opt_hover_max_lines,
             'hover_additional_commands': opt_hover_additional_commands,
+            'cudatext_in_py_env': opt_cudatext_in_py_env,
         }
         if opt_manual_didopen is not None:
             j['manual_didopen'] = opt_manual_didopen

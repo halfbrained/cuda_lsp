@@ -44,6 +44,7 @@ from .sansio_lsp_client.structs import (
         MarkupKind,
         MarkedString,
         FormattingOptions,
+        #WorkspaceFolder,
     )
 
 #_   = get_translation(__file__)  # I18N
@@ -95,12 +96,18 @@ class Language:
         self._server_cmd = cfg.get(CMD_OS_KEY)
         self._tcp_port = cfg.get('tcp_port') # None => use Popen
         self._work_dir = cfg.get('work_dir')
+        # paths to add to env  -- {var_name: list[paths]}
+        self._env_paths = cfg.get('env_paths')
 
         self._validate_config()
 
-        # expand user in server start cmd
+        # expand user paths
         if isinstance(self._server_cmd, list):
             self._server_cmd = [os.path.expanduser(c) for c in self._server_cmd]
+
+        if isinstance(self._env_paths, dict):
+            for name,paths in self._env_paths.items():
+                self._env_paths[name] = [os.path.expanduser(p) for p in paths]
 
 
         self._client = None
@@ -125,7 +132,11 @@ class Language:
     def client(self):
         if self._client is None:
             root_uri = path_to_uri(self._work_dir) if self._work_dir else None
-            self._client = lsp.Client(root_uri=root_uri, process_id=os.getpid())
+            self._client = lsp.Client(
+                root_uri=root_uri,
+                #workspace_folders=[ WorkspaceFolder(uri=path_to_uri(path), name='...'), ],
+                process_id=os.getpid(),
+            )
             self._start_server()
         return self._client
 
@@ -159,6 +170,9 @@ class Language:
         # not port - create stdio-process
         else:
             print(f'{LOG_NAME}: starting server - {self.lang_str}; root: {self._work_dir}')
+
+            env = ServerConfig.prepare_env(self._env_paths)
+
             try:
                 self.process = subprocess.Popen(
                     args=self._server_cmd,
@@ -166,7 +180,7 @@ class Language:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     cwd=self._work_dir,
-                    #env=,
+                    env=env,
                 )
             except Exception as ex:
                 print(f'NOTE: {LOG_NAME}: {self.lang_str} - Failed to create process, command:'
@@ -263,6 +277,9 @@ class Language:
             msg.reply() # send confirmation reply to server
             self.process_queues()
             app_proc(PROC_EXEC_PLUGIN, 'cuda_lsp,on_lang_inited,'+self.name)
+
+        #elif msgtype == events.WorkplaceFolders:
+            #msg.reply(folders=...)
 
         elif msgtype == events.Completion:
             items = msg.completion_list.items
@@ -667,6 +684,16 @@ class Language:
             msg = f'no server-start-command for current OS ({CMD_OS_KEY}) or tcp_port specified'
             raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
 
+        # check that 'env_paths' is dict of lists
+        if self._env_paths:
+            if not isinstance(self._env_paths, dict):
+                msg = '`env_paths` should be a `dictionary`'
+                raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
+            for paths in self._env_paths.values():
+                if not isinstance(paths, list):
+                    msg = '`env_paths` values should be `lists`'
+                    raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
+
 
     def _dbg_print_registrations(self):
         import pprint
@@ -919,6 +946,18 @@ class ServerConfig:
                 #print(f'* Unsupported function by server: {name}')
                 res[name] = None  # None denotes unsupported command - dimmed in hover dlg
         return res
+
+    def prepare_env(env_paths):
+        if not env_paths:       return
+
+        env = {**os.environ}
+        for name,paths in env_paths.items():
+            if paths:
+                if env.get(name):
+                    env[name] += os.pathsep + os.pathsep.join(paths)
+                else:
+                    env[name] = os.pathsep.join(paths)
+        return env
 
 
 class CompletionMan:

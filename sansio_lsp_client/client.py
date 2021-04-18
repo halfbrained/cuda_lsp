@@ -54,6 +54,7 @@ from .structs import (
     SymbolInformation,
     FormattingOptions,
     Range,
+    WorkspaceFolder,
 )
 from .io_handler import _make_request, _parse_messages, _make_response
 
@@ -138,23 +139,23 @@ CAPABILITIES = {
     },
 
     'workspace': {
-        'workspaceEdit': {
-            'failureHandling': 'abort',
-            'documentChanges': True
-        },
-        'applyEdit': True,
-        'configuration': True,
         'symbol': {
             'dynamicRegistration': True,
             'symbolKind': {
                 'valueSet': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
             }
         },
-        'executeCommand': {},
-        'workspaceFolders': True,
-        'didChangeConfiguration': {
-            'dynamicRegistration': True
-        }
+        #'workspaceFolders': True,
+        #'workspaceEdit': {
+            #'failureHandling': 'abort',
+            #'documentChanges': True
+        #},
+        #'applyEdit': True,
+        #'executeCommand': {},
+        #'configuration': True,
+        #'didChangeConfiguration': {
+            #'dynamicRegistration': True
+        #}
     },
 }
 
@@ -165,6 +166,7 @@ class Client:
         self,
         process_id: t.Optional[int] = None,
         root_uri: t.Optional[str] = None,
+        workspace_folders: t.Optional[t.List[WorkspaceFolder]] = None,
         trace: str = "off",
     ) -> None:
         self._state = ClientState.NOT_INITIALIZED
@@ -185,12 +187,17 @@ class Client:
         # it would just litter the code unnecessarily.
         self._id_counter = 0
 
+        # prepare workspace folders for sending -- to `dict`
+        if workspace_folders:
+            workspace_folders = [f.dict() for f in workspace_folders]
+
         # We'll just immediately send off an "initialize" request.
         self._send_request(
             method="initialize",
             params={
                 "processId": process_id,
                 "rootUri": root_uri,
+                "workspaceFolders": workspace_folders,
                 "trace": trace,
                 "capabilities": CAPABILITIES,
             },
@@ -336,7 +343,10 @@ class Client:
                     " or ServerNotification"
                 )
 
-        if request.method == "window/showMessage":
+        if request.method == "workspace/workspaceFolders":
+            return parse_request()
+
+        elif request.method == "window/showMessage":
             return parse_request(ShowMessage)
         elif request.method == "window/showMessageRequest":
             return parse_request(ShowMessageRequest)
@@ -444,6 +454,21 @@ class Client:
         self._send_notification(
             method="textDocument/didClose",
             params={"textDocument": text_document.dict()},
+        )
+
+    def did_change_workspace_folders(
+        self,
+        added: t.List[WorkspaceFolder],
+        removed: t.List[WorkspaceFolder],
+    ) -> None:
+        assert self._state == ClientState.NORMAL
+        params = {
+            "added": [f.dict() for f in added],
+            "removed": [f.dict() for f in removed],
+        }
+        self._send_notification(
+            method="workspace/didChangeWorkspaceFolders",
+            params=params,
         )
 
     def completion(

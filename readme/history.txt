@@ -1,3 +1,6 @@
+2021.04.18
++ add: option "cudatext_in_py_env" - adds CudaText API to Python server
+
 2021.04.16
 + add: option "hover_additional_commands" - list of additional commands to show in hover dialog
 
