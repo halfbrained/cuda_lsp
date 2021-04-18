@@ -45,7 +45,7 @@ from .sansio_lsp_client.structs import (
         MarkupKind,
         MarkedString,
         FormattingOptions,
-        #WorkspaceFolder,
+        WorkspaceFolder,
     )
 
 #_   = get_translation(__file__)  # I18N
@@ -133,9 +133,12 @@ class Language:
     def client(self):
         if self._client is None:
             root_uri = path_to_uri(self._work_dir) if self._work_dir else None
+            # for now just a single folder in workspace
+            wsfolders = [ WorkspaceFolder(uri=root_uri, name='Root'), ]  if self._work_dir else None
+
             self._client = lsp.Client(
                 root_uri=root_uri,
-                #workspace_folders=[ WorkspaceFolder(uri=path_to_uri(path), name='...'), ],
+                workspace_folders=wsfolders,
                 process_id=os.getpid(),
             )
             self._start_server()
@@ -154,6 +157,7 @@ class Language:
             if opts:
                 return True
         return False
+
 
 
     def _start_server(self):
@@ -455,6 +459,22 @@ class Language:
                 text = eddoc.ed.get_text_all() if  include_text  else None
                 self.client.did_save(text_document=docid, text=text)
 
+    def on_rootdir_change(self, newroot):
+        if self._client is not None  and  self.client.is_initialized:
+            opts = self.scfg.method_opts(METHOD_WS_FOLDERS)
+            if opts  and  opts.get('supported')  and  opts.get('changeNotifications'):
+                removed = [] # emptys if no folder
+                added = []
+                if self._work_dir:
+                    old_root_uri = path_to_uri(self._work_dir)
+                    removed.append(WorkspaceFolder(uri=old_root_uri, name='Root'))
+                if newroot:
+                    new_root_uri = path_to_uri(newroot) if newroot else None
+                    added.append(WorkspaceFolder(uri=new_root_uri, name='Root'))
+                self._work_dir = newroot
+
+                self.client.did_change_workspace_folders(removed=removed, added=added)
+                return True
 
     def _action_by_name(self, method_name, eddoc, caret=None):
         if self.client.is_initialized:
@@ -806,6 +826,10 @@ METHOD_DOC_SYMBOLS      = 'textDocument/documentSymbol'
 METHOD_FORMAT_DOC       = 'textDocument/formatting'
 METHOD_FORMAT_SEL       = 'textDocument/rangeFormatting'
 
+# client method(s)
+METHOD_WS_FOLDERS = 'workspace/workspaceFolders'
+
+
 CAPABILITY_DID_OPEN         = 'textDocument.didOpen'
 CAPABILITY_DID_CLOSE        = 'textDocument.didClose'
 CAPABILITY_DID_SAVE         = 'textDocument.didSave' # options: (supported, includeText)
@@ -821,6 +845,7 @@ CAPABILITY_TYPEDEF          = 'textDocument.typeDefinition'
 CAPABILITY_DOC_SYMBOLS      = 'textDocument.documentSymbol'
 CAPABILITY_FORMAT_DOC       = 'textDocument.formatting'
 CAPABILITY_FORMAT_SEL       = 'textDocument.rangeFormatting'
+CAPABILITY_WORKSPACE_FOLDERS = 'workspace.workspaceFolders'
 
 METHOD_PROVIDERS = {
     METHOD_COMPLETION       : 'completionProvider',
@@ -833,7 +858,7 @@ METHOD_PROVIDERS = {
     METHOD_TYPEDEF          : 'typeDefinitionProvider',
     METHOD_DOC_SYMBOLS      : 'documentSymbolProvider',
     METHOD_FORMAT_DOC       : 'documentFormattingProvider',
-    METHOD_FORMAT_DOC       : 'documentRangeFormattingProvider',
+    METHOD_FORMAT_SEL       : 'documentRangeFormattingProvider',
 
     #METHOD_WS_SYMBOLS       : '',
 }
@@ -873,7 +898,21 @@ class ServerConfig:
             _opts = {**_default_opts, 'syncKind': _docsynckind}
             self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
 
-        # ~other static capabilites
+        ### WORKSPACE
+        workspace = capabilities.get('workspace')
+        if workspace:
+            # workspaceFolders
+            wsfolders = workspace.get('workspaceFolders', {})
+            _opts = {
+                #**_default_opts, # -- no need for workspace methods
+                'supported': wsfolders.get('supported', False),
+                'changeNotifications': wsfolders.get('changeNotifications', False),
+            }
+            _reg = Registration(id='0', method=METHOD_WS_FOLDERS, registerOptions=_opts)
+            self.capabs.append(_reg)
+
+
+        ### ~other static capabilites
         for meth,prov in METHOD_PROVIDERS.items():
             capval = capabilities.get(prov, False)
             if capval is False:
@@ -893,20 +932,27 @@ class ServerConfig:
     def method_opts(self, method_name, doc=None, ed_self=None, langid=None):
         """ returns: options dict or None
         """
-        #if method_name is None:
-            #method_name = capab_name.replace('.', '/')
-        if ed_self is None:
-            ed_self = doc.ed
-        if langid is None:
-            langid = doc.langid
+        if method_name.startswith('textDocument/'):
+            if ed_self is None:
+                ed_self = doc.ed
+            if langid is None:
+                langid = doc.langid
 
-        for registration in self.capabs:
-            if registration.method == method_name:
-                if ServerConfig.match_capability(registration, ed_self, langid):
+            for registration in self.capabs:
+                if registration.method == method_name:
+                    if ServerConfig.match_capability(registration, ed_self, langid):
+                        return registration.registerOptions
+
+            if method_name != METHOD_DID_OPEN:
+                print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
+
+        elif method_name.startswith('workspace/'):
+            for registration in self.capabs:
+                if registration.method == method_name:
                     return registration.registerOptions
 
-        if method_name != METHOD_DID_OPEN:
-            print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
+        elif LOG:
+            print(f'NOTE: {LOG_NAME}: odd method: {method_name}')
 
 
     # "selector is one ore more filters"

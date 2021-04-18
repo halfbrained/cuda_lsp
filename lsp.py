@@ -92,6 +92,7 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 * () on functions completion?
 * 'hover' dialog -- add  context menu - apply any lexer
 * separate log panel for server's `LogMessage`
+* unregistering capabilities
 
 
 #TODO features
@@ -358,12 +359,19 @@ class Command:
         elif state == APPSTATE_PROJECT:
             new_project_dir = get_project_dir()
             if self._project_dir != new_project_dir  and  self._langs:
-                print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; restarting servers...')
-                self.shutdown_all_servers()
+                print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; notifying servers...')
 
-                # on_open visible eds
+                for name,lang in list(self._langs.items()):
+                    handled = lang.on_rootdir_change(new_project_dir)
+                    if not handled:
+                        self.shutdown_server(name=name)
+
+                # on_open visible eds/docs without lang
                 for edt in get_visible_eds():
-                    self.on_open(edt)
+                    doc = self.book.get_doc(edt)
+                    if not doc  or  not doc.lang:
+                        self.on_open(edt)
+
 
     def on_exit(self, *args, **vargs):
         # start servers shutdown
