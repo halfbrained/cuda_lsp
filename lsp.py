@@ -133,12 +133,19 @@ def get_project_dir():
     import cuda_project_man
 
     path = None
-    if opt_root_dir_source == 0: # project file dir
-        path = cuda_project_man.project_variables()["ProjDir"] or None
-    elif opt_root_dir_source == 1: # first node
-        _nodes = cuda_project_man.global_project_info.get('nodes')
-        path = _nodes[0] if _nodes else None
-    return path
+    for optval in opt_root_dir_source:
+        if optval == 0: # project file dir
+            path = cuda_project_man.project_variables()["ProjDir"]
+        elif optval == 1: # first node
+            _nodes = cuda_project_man.global_project_info.get('nodes')
+            path = _nodes[0] if _nodes else None
+        elif optval == 2: # project's main-file dir
+            path = cuda_project_man.global_project_info.get('mainfile')
+            if path:
+                path = os.path.dirname(path)
+
+        if path:
+            return path
 
 
 class Command:
@@ -350,7 +357,7 @@ class Command:
 
         elif state == APPSTATE_PROJECT:
             new_project_dir = get_project_dir()
-            if self._project_dir != new_project_dir:
+            if self._project_dir != new_project_dir  and  self._langs:
                 print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; restarting servers...')
                 self.shutdown_all_servers()
 
@@ -518,7 +525,7 @@ class Command:
                 name = names[ind]
 
         # shutting down and clearing remains
-        if name is not None:
+        if name is not None  and  name in self._langs:
             lang = self._langs.pop(name)
             lang.shutdown()
 
@@ -565,11 +572,13 @@ class Command:
             opt_enable_mouse_hover = j.get('enable_mouse_hover', opt_enable_mouse_hover)
 
             _opt_root_dir_source = j.get('root_dir_source', opt_root_dir_source)
-            if _opt_root_dir_source in [0, 1]:
+            if not isinstance(_opt_root_dir_source, list):  # convert item to list
+                _opt_root_dir_source = [_opt_root_dir_source]
+            if all(val in {0, 1, 2} for val in _opt_root_dir_source):
                 opt_root_dir_source = _opt_root_dir_source
             else:
                 print(f'NOTE: {LOG_NAME}: invalid value of option "root_dir_source"'
-                        +f' in {fn_config}, should be "0" or "1"')
+                        +f' in {fn_config}, accepted values: 0, 1, 2')
 
             opt_send_change_on_request = j.get('send_change_on_request', opt_send_change_on_request)
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
@@ -653,6 +662,12 @@ class Command:
     def _killpy(self):
         lpy = self._langs.pop('python')
         lpy.shutdown()
+    @property
+    def lcpp(self):
+        return self._langs.get('cpp')
+    def _killcpp(self):
+        lcpp = self._langs.pop('cpp')
+        lcpp.shutdown()
 
 
 # if python too old - give msgbox and disable plugin
@@ -708,4 +723,5 @@ servers_cfgs = []
 #},
 ]
 """
+
 

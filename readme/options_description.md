@@ -1,8 +1,9 @@
 # Options description
 
-* root_dir_source - LSP server root directory source:
+* root_dir_source - LSP server root directory source (accepts list of values for fallback):
     * 0 - parent directory of '.cuda-proj'
     * 1 - first directory in project
+    * 2 - project main-file's directory
 
 * send_change_on_request - send changes only before request 
     * false - changes to the documents are sent to server after edit and a short delay (default)

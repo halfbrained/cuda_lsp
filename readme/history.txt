@@ -1,5 +1,7 @@
 2021.04.18
 + add: option "cudatext_in_py_env" - adds CudaText API to Python server
++ add: project main-file's directory as server's root_dir source
++ add: accept list of values for option `root_dir_source` for fallback
 
 2021.04.17
 + add: command "Config" writes current options to file
