@@ -10,6 +10,9 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 For each LSP server, add config to the folder "settings" (folder of user.json CudaText config).
 Config filename must be named lsp_*.json ("lsp_" prefix and ".json" suffix).
 
+"Hover dialog" feature: dialog appears when you stop moving the mouse cursor, over some
+identifier, with Ctrl-key pressed (Command-key on macOS).
+
 
 Example for Python
 ------------------
