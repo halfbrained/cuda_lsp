@@ -290,6 +290,7 @@ class Command:
             if oldlex != newlex:
                 if doc.lang:
                     doc.lang.on_close(doc) # sends on_close to server
+                doc.update()
                 self.on_open(ed_self) # changes/removes lang server of doc
         else:    # create doc if new lexer is supported by lsp server
             self.on_open(ed_self)
