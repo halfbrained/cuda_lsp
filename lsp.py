@@ -52,6 +52,7 @@ opt_hover_additional_commands = [
     "Type definition",
 ]
 opt_cudatext_in_py_env = False
+opt_lint_type = 'b'
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
@@ -410,7 +411,7 @@ class Command:
                     cfg['work_dir'] = self._project_dir
 
                     try:
-                        lang = Language(cfg, cmds=self._hint_cmds)
+                        lang = Language(cfg, cmds=self._hint_cmds, lintstr=opt_lint_type)
                     except ValidationError:
                         servers_cfgs.remove(cfg) # dont nag on every on_open
                         raise
@@ -571,6 +572,7 @@ class Command:
         global opt_hover_max_lines
         global opt_hover_additional_commands
         global opt_cudatext_in_py_env
+        global opt_lint_type
 
         # general cfg
         if os.path.exists(fn_config):
@@ -592,6 +594,7 @@ class Command:
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
             opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
             opt_cudatext_in_py_env = j.get('cudatext_in_py_env', opt_cudatext_in_py_env)
+            opt_lint_type = j.get('lint_type', opt_lint_type)
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', None)
@@ -650,6 +653,7 @@ class Command:
             'hover_dlg_max_lines': opt_hover_max_lines,
             'hover_additional_commands': opt_hover_additional_commands,
             'cudatext_in_py_env': opt_cudatext_in_py_env,
+            'lint_type': opt_lint_type,
         }
         if opt_manual_didopen is not None:
             j['manual_didopen'] = opt_manual_didopen

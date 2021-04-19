@@ -83,7 +83,7 @@ RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
 
 class Language:
-    def __init__(self, cfg, cmds=None):
+    def __init__(self, cfg, cmds=None, lintstr=''):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
 
         self._cfg = cfg
@@ -114,7 +114,7 @@ class Language:
         self._client = None
 
         self.request_positions = {} # RequestPos
-        self.diagnostics_man = DiagnosticsMan()
+        self.diagnostics_man = DiagnosticsMan(lintstr)
 
         self._closed = False
         self.sock = None
@@ -756,16 +756,29 @@ class DiagnosticsMan:
             - clear,reaply diags if visible
     """
 
-    def __init__(self):
+    LINT_NONE = 100
+    LINT_BOOKMARK = 101
+    LINT_DECOR = 102
+
+    def __init__(self, lintstr=None):
         self.uri_diags = {} # uri -> diag?
         self.dirtys = set() # uri
 
-        # load icons, disable line highlight
-        for severity,kind in DIAG_BM_KINDS.items():
-            _icon_path = DIAG_BM_IC_PATHS[severity]
-            ed.bookmark(BOOKMARK_SETUP, 0, nkind=kind, ncolor=COLOR_NONE, text=_icon_path)
+        self._linttype = None  # gutter icons
+        self._highlight_bg = False
+        self._highlight_text = False
+
+        self._load_lint_type(lintstr)
+
+        # icons and bg col
+        self._decor_serverity_ims = None
+
+        self._setup_gutter()
 
     def on_doc_shown(self, eddoc):
+        if not self._linttype:
+            return
+
         # if dirty - update
         if eddoc.uri in self.dirtys:
             self.dirtys.remove(eddoc.uri)
@@ -773,6 +786,9 @@ class DiagnosticsMan:
             self._apply_diagnostics(eddoc.ed, self.uri_diags[eddoc.uri])
 
     def set_diagnostics(self, uri, diag_list):
+        if not self._linttype:
+            return
+
         if len(diag_list) > 0:
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
@@ -782,31 +798,119 @@ class DiagnosticsMan:
                 self.dirtys.add(uri)
 
     def _apply_diagnostics(self, ed, diag_list):
-        # clear old
-        ed.bookmark(BOOKMARK_DELETE_BY_TAG, 0, tag=DIAG_BM_TAG)
+        if self._linttype  or  self._highlight_bg:
+            self._clear_old()
 
-        # set new
+            ### set new
+            # get dict of lines for gutter
+            line_diags = self._get_gutter_data(diag_list)
+
+            err_ranges = []  # tuple(x,y,len)
+            # apply gutter to editor
+            for nline,diags in line_diags.items():
+                severity_la = lambda d: d.severity or 9
+                if self._linttype == DiagnosticsMan.LINT_DECOR:
+                    decor_severity = min(severity_la(d) for d in diags) # most severe severity  for decor
+                else:
+                    diags.sort(key=severity_la) # important first, None - last
+
+                # get msg-lines for bookmark hover
+                msg_lines = []
+                for d in diags:
+                    kind = DIAG_BM_KINDS.get(d.severity, DIAG_DEFAULT_SEVERITY)
+                    #TODO fix ugly... (.severity and .code -- can be None)
+                    pre,post = ('[',']: ') if (d.severity is not None  or  d.code) else  ('','')
+                    mid = ':' if (d.severity is not None  and  d.code) else ''
+
+                    severity_short = d.severity.short_name() if d.severity else ''
+                    # "[severity:code] message"
+                    code = str(d.code)  if d.code is not None else  ''
+                    text = ''.join([pre, severity_short, mid, code, post, d.message])
+                    msg_lines.append(text)
+
+                # gather err ranges
+                for d in diags:
+                    x0,y0 = d.range.start.character, d.range.start.line
+                    x1,y1 = d.range.end.character, d.range.end.line
+                    if y0 == y1:   # single line (shortcut for common case)
+                        err_ranges.append((x0, y0, x1-x0))
+                    else: # multiline
+                        for linen in range(y0, y1):
+                            linelen = len(ed.get_text_line(linen))
+                            mx0 = x0  if linen == y0 else  0
+                            mx1 = linelen
+                            err_ranges.append((mx0, y0, mx1-mx0))
+
+                        err_ranges.append((0, y1, x1)) # last line
+
+
+                # set bookmark or decor
+                if self._linttype == DiagnosticsMan.LINT_DECOR:
+                    if decor_severity == 9:
+                        decor_severity = DIAG_DEFAULT_SEVERITY
+                    ed.decor(DECOR_SET, line=nline, image=self._decor_serverity_ims[decor_severity])
+                else:
+                    text = '\n'.join(msg_lines)
+                    ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text=text, tag=DIAG_BM_TAG)
+            #end for line_diags
+
+            # underline error text ranges
+            if self._highlight_text  and  err_ranges:
+                _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+                err_col = _colors['EdMicromapSpell']['color']
+                xs,ys,lens = list(zip(*err_ranges))
+                self.last_err_ranges = err_ranges
+
+                ed.attr(MARKERS_ADD_MANY,  tag=DIAG_BM_TAG,  x=xs,  y=ys,  len=lens,
+                            color_border=err_col,  border_down=5)
+
+
+
+    def _get_gutter_data(self, diag_list):
         line_diags = defaultdict(list) # line -> list of diagnostics
         for d in diag_list:
             line_diags[d.range.start.line].append(d)
+        return line_diags
 
-        for nline,diags in line_diags.items():
-            diags.sort(key=lambda d: d.severity or 9) # important first, None - last
+    def _clear_old(self):
+        # gutter
+        if self._linttype == DiagnosticsMan.LINT_DECOR:
+            ed.decor(DECOR_DELETE_BY_TAG, tag=DIAG_BM_TAG)
+        else:
+            ed.bookmark(BOOKMARK_DELETE_BY_TAG, 0, tag=DIAG_BM_TAG)
 
-            msg_lines = []
-            for d in diags:
-                kind = DIAG_BM_KINDS.get(d.severity, DIAG_DEFAULT_SEVERITY)
-                #TODO fix ugly... (.severity and .code -- can be None)
-                pre,post = ('[',']: ') if (d.severity is not None  or  d.code) else  ('','')
-                mid = ':' if (d.severity is not None  and  d.code) else ''
+        # text err underline
+        if self._highlight_text:
+            ed.attr(MARKERS_DELETE_BY_TAG, tag=DIAG_BM_TAG)
 
-                severity_short = d.severity.short_name() if d.severity else ''
-                # "[severity:code] message"
-                code = str(d.code)  if d.code is not None else  ''
-                text = ''.join([pre, severity_short, mid, code, post, d.message])
-                msg_lines.append(text)
+    def _load_lint_type(self, lintstr):
+        if lintstr:
+            self._highlight_text = lintstr and 'c' in lintstr
+            if 'B' in lintstr  or  'b' in lintstr:
+                self._linttype = DiagnosticsMan.LINT_BOOKMARK
+                self._highlight_bg = 'B' in lintstr
+            elif 'd' in lintstr:
+                self._linttype = DiagnosticsMan.LINT_DECOR
+            else:
+                self._linttype = DiagnosticsMan.LINT_NONE
 
-            ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text='\n'.join(msg_lines), tag=DIAG_BM_TAG)
+    def _setup_gutter(self):
+        if self._linttype or self._highlight_bg:
+            if self._linttype == DiagnosticsMan.LINT_DECOR:
+                self._decor_serverity_ims = {}
+
+            icon_paths = DIAG_BM_IC_PATHS  if self._linttype != DiagnosticsMan.LINT_NONE else  {}
+            ncolor = COLOR_DEFAULT  if self._highlight_bg else  COLOR_NONE
+            for severity,kind in DIAG_BM_KINDS.items():
+                icon_path = icon_paths.get(severity, '')
+                if self._linttype == DiagnosticsMan.LINT_DECOR:
+                    '!!! check if global'
+                    _h_im = ed.decor(DECOR_GET_IMAGELIST)
+                    _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
+                    self._decor_serverity_ims[severity] = _ind
+                else: # bookmark and/or line bg
+                    ed.bookmark(BOOKMARK_SETUP, 0, nkind=kind, ncolor=ncolor, text=icon_path)
+
 
 
 METHOD_DID_OPEN         = 'textDocument/didOpen'
