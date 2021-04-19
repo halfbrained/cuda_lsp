@@ -83,7 +83,7 @@ RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
 
 class Language:
-    def __init__(self, cfg, cmds=None, lintstr=''):
+    def __init__(self, cfg, cmds=None, lintstr='', underline_style=None):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
 
         self._cfg = cfg
@@ -114,7 +114,7 @@ class Language:
         self._client = None
 
         self.request_positions = {} # RequestPos
-        self.diagnostics_man = DiagnosticsMan(lintstr)
+        self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
 
         self._closed = False
         self.sock = None
@@ -760,20 +760,21 @@ class DiagnosticsMan:
     LINT_BOOKMARK = 101
     LINT_DECOR = 102
 
-    def __init__(self, lintstr=None):
+    def __init__(self, lintstr=None, underline_style=2):
         self.uri_diags = {} # uri -> diag?
         self.dirtys = set() # uri
 
         self._linttype = None  # gutter icons
         self._highlight_bg = False
         self._highlight_text = False
+        self._underline_style = underline_style
 
         self._load_lint_type(lintstr)
 
         # icons and bg col
-        self._decor_serverity_ims = None
+        self._decor_serverity_ims = {} # ed handle -> {severity : im ind}
 
-        self._setup_gutter()
+        self._setup_bookmark_gutter()
 
     def on_doc_shown(self, eddoc):
         if not self._linttype:
@@ -800,6 +801,12 @@ class DiagnosticsMan:
     def _apply_diagnostics(self, ed, diag_list):
         if self._linttype  or  self._highlight_bg:
             self._clear_old()
+
+            if self._linttype == DiagnosticsMan.LINT_DECOR:
+                h_ed = ed.get_prop(PROP_HANDLE_SELF)
+                if h_ed not in self._decor_serverity_ims:
+                    self._setup_decor_gutter(ed)
+                decor_im_map = self._decor_serverity_ims[h_ed]
 
             ### set new
             # get dict of lines for gutter
@@ -848,7 +855,7 @@ class DiagnosticsMan:
                 if self._linttype == DiagnosticsMan.LINT_DECOR:
                     if decor_severity == 9:
                         decor_severity = DIAG_DEFAULT_SEVERITY
-                    ed.decor(DECOR_SET, line=nline, image=self._decor_serverity_ims[decor_severity])
+                    ed.decor(DECOR_SET, line=nline, image=decor_im_map[decor_severity])
                 else:
                     text = '\n'.join(msg_lines)
                     ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text=text, tag=DIAG_BM_TAG)
@@ -862,7 +869,7 @@ class DiagnosticsMan:
                 self.last_err_ranges = err_ranges
 
                 ed.attr(MARKERS_ADD_MANY,  tag=DIAG_BM_TAG,  x=xs,  y=ys,  len=lens,
-                            color_border=err_col,  border_down=5)
+                            color_border=err_col,  border_down=self._underline_style)
 
 
 
@@ -894,22 +901,22 @@ class DiagnosticsMan:
             else:
                 self._linttype = DiagnosticsMan.LINT_NONE
 
-    def _setup_gutter(self):
+    def _setup_bookmark_gutter(self):
         if self._linttype or self._highlight_bg:
-            if self._linttype == DiagnosticsMan.LINT_DECOR:
-                self._decor_serverity_ims = {}
-
             icon_paths = DIAG_BM_IC_PATHS  if self._linttype != DiagnosticsMan.LINT_NONE else  {}
             ncolor = COLOR_DEFAULT  if self._highlight_bg else  COLOR_NONE
             for severity,kind in DIAG_BM_KINDS.items():
                 icon_path = icon_paths.get(severity, '')
-                if self._linttype == DiagnosticsMan.LINT_DECOR:
-                    '!!! check if global'
-                    _h_im = ed.decor(DECOR_GET_IMAGELIST)
-                    _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
-                    self._decor_serverity_ims[severity] = _ind
-                else: # bookmark and/or line bg
-                    ed.bookmark(BOOKMARK_SETUP, 0, nkind=kind, ncolor=ncolor, text=icon_path)
+                ed.bookmark(BOOKMARK_SETUP, 0, nkind=kind, ncolor=ncolor, text=icon_path)
+
+    def _setup_decor_gutter(self, ed):
+        icon_paths = DIAG_BM_IC_PATHS
+        for severity,kind in DIAG_BM_KINDS.items():
+            icon_path = icon_paths.get(severity, '')
+            _h_im = ed.decor(DECOR_GET_IMAGELIST)
+            _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
+            _h_ed = ed.get_prop(PROP_HANDLE_SELF)
+            self._decor_serverity_ims.setdefault(_h_ed, {})[severity] = _ind
 
 
 

@@ -23,7 +23,13 @@
 * cudatext_in_py_env - add CudaText API to Python server
 
 * lint_type - lint display manner; string, combination of the following characters:
-	* 'd' - icons to indicate severity of lint message on the line
-	* 'b' - bookmarks with icons and message details on hover (overrides 'd')
-	* 'B' - same as 'b' and also highlights line backgrounds (overrides 'b' and 'd')
-	* 'c' - underline message's text range
+    * 'd' - icons to indicate severity of lint message on the line
+    * 'b' - bookmarks with icons and message details on hover (overrides 'd')
+    * 'B' - same as 'b' and also highlights line backgrounds (overrides 'b' and 'd')
+    * 'c' - underline message's text range
+
+* lint_underline_style - style of underline for lint target text; possible values:
+    * 0 - "solid"
+    * 1 - "dotted"
+    * 2 - "dashes"
+    * 3 - "wave"

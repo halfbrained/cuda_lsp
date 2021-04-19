@@ -39,6 +39,7 @@ fn_opt_descr = os.path.join(_plugin_dir, 'readme', 'options_description.md')
 
 SEVERS_SHUTDOWN_MAX_TIME = 2 # seconds
 SEVERS_SHUTDOWN_CHECK_PERIOD = 0.1 # seconds
+LINT_STYLE_MAP = {0:1, 1:4, 2: 2, 3:6}
 
 opt_enable_mouse_hover = True
 opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
@@ -53,6 +54,7 @@ opt_hover_additional_commands = [
 ]
 opt_cudatext_in_py_env = False
 opt_lint_type = 'b'
+opt_lint_underline_style = 2  # solid 0, dotted 1, dashes 2, wave 3
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
@@ -195,6 +197,16 @@ class Command:
         file_open((fn_config, fn_opt_descr))
         se = Editor(ed.get_prop(PROP_HANDLE_SECONDARY))
         se.set_prop(PROP_WRAP, True)
+
+        # underline demo
+        underline = {'"solid"':  1, '"dotted"': 4, '"dashes"': 2, '"wave"':   6, }
+        _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        err_col = _colors['EdMicromapSpell']['color']
+        for text,style in underline.items():
+            res = se.action(EDACTION_FIND_ONE, text, "c")
+            if res:
+                se.attr(MARKERS_ADD, x=res[0], y=res[1], len=res[2]-res[0],
+                            color_border=err_col, border_down=style)
 
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
@@ -411,7 +423,11 @@ class Command:
                     cfg['work_dir'] = self._project_dir
 
                     try:
-                        lang = Language(cfg, cmds=self._hint_cmds, lintstr=opt_lint_type)
+                        lang = Language(cfg,
+                                cmds=self._hint_cmds,
+                                lintstr=opt_lint_type,
+                                underline_style=LINT_STYLE_MAP[opt_lint_underline_style],
+                        )
                     except ValidationError:
                         servers_cfgs.remove(cfg) # dont nag on every on_open
                         raise
@@ -573,6 +589,7 @@ class Command:
         global opt_hover_additional_commands
         global opt_cudatext_in_py_env
         global opt_lint_type
+        global opt_lint_underline_style
 
         # general cfg
         if os.path.exists(fn_config):
@@ -595,6 +612,10 @@ class Command:
             opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
             opt_cudatext_in_py_env = j.get('cudatext_in_py_env', opt_cudatext_in_py_env)
             opt_lint_type = j.get('lint_type', opt_lint_type)
+
+            _opt_lint_underline_style = j.get('lint_underline_style', opt_lint_underline_style)
+            if _opt_lint_underline_style in LINT_STYLE_MAP:
+                opt_lint_underline_style = _opt_lint_underline_style
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', None)
@@ -654,6 +675,7 @@ class Command:
             'hover_additional_commands': opt_hover_additional_commands,
             'cudatext_in_py_env': opt_cudatext_in_py_env,
             'lint_type': opt_lint_type,
+            'lint_underline_style': opt_lint_underline_style,
         }
         if opt_manual_didopen is not None:
             j['manual_didopen'] = opt_manual_didopen

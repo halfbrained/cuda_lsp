@@ -1,5 +1,5 @@
 2021.04.19
-+ add: option - 'lint_type'
++ add: options - 'lint_type' and 'lint_underline_style'
 
 2021.04.18
 + add: option "cudatext_in_py_env" - adds CudaText API to Python server
