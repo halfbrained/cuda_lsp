@@ -790,7 +790,7 @@ class DiagnosticsMan:
         if not self._linttype:
             return
 
-        if len(diag_list) > 0:
+        if len(diag_list) > 0  or  self.uri_diags.get(uri):
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
                 if uri == ed_uri(ed):
@@ -800,7 +800,7 @@ class DiagnosticsMan:
 
     def _apply_diagnostics(self, ed, diag_list):
         if self._linttype  or  self._highlight_bg:
-            self._clear_old()
+            self._clear_old(ed)
 
             if self._linttype == DiagnosticsMan.LINT_DECOR:
                 h_ed = ed.get_prop(PROP_HANDLE_SELF)
@@ -879,7 +879,7 @@ class DiagnosticsMan:
             line_diags[d.range.start.line].append(d)
         return line_diags
 
-    def _clear_old(self):
+    def _clear_old(self, ed):
         # gutter
         if self._linttype == DiagnosticsMan.LINT_DECOR:
             ed.decor(DECOR_DELETE_BY_TAG, tag=DIAG_BM_TAG)
