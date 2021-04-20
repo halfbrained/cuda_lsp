@@ -42,7 +42,7 @@ SEVERS_SHUTDOWN_CHECK_PERIOD = 0.1 # seconds
 LINT_STYLE_MAP = {0:1, 1:4, 2: 2, 3:6}
 
 opt_enable_mouse_hover = True
-opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
+opt_root_dir_source = [0]
 opt_send_change_on_request = False
 opt_hover_max_lines = 10
 opt_hover_additional_commands = [
