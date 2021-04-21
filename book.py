@@ -93,55 +93,64 @@ class EditorDoc:
 
         oldspl = oldtxt.splitlines(keepends=True)
         newspl = self._txt.splitlines(keepends=True)
-        # matches example: [Match(a=0, b=0, size=4), Match(a=4, b=5, size=0)]
-        matches = SequenceMatcher(a=oldspl, b=newspl).get_matching_blocks()
 
         #NOTE: tracking changes by full lines  (optimize if needed later)
         ### changes: TextDocumentContentChangeEvent(txt, range)
         # range - Range(start, end)
         # start,end - Position(line_ind, char_ind)
         changes = []
-        ia, ib = 0, 0
-        for match in matches:
-            if match.a == ia:
-                if match.b == ib: # same pos -- nothing skipped
-                    #ia += match.size
-                    #ib += match.size
-                    pass
-                elif match.b > ib: # inserted line after .ib
-                    start = structs.Position(line=ib, character=0)
-                    end = start # ...
-                    _range = structs.Range(start=start, end=end)
-                    _change_str = ''.join(newspl[ib:match.b])
-                    change_ev = structs.TextDocumentContentChangeEvent(text=_change_str, range=_range)
-                    changes.append(change_ev)
-                else:
-                    raise Exception('Match block b - before (should_never_happen_tm):' + str((ia, ib, match)))
-            elif match.a > ia: # change before this match
-                if match.b == ib: # deleted line(s)
-                    start = structs.Position(line=ia, character=0)
-                    end = structs.Position(line=match.a-1, character=len(oldspl[match.a-1]))
-                    _range = structs.Range(start=start, end=end)
-                    _change_str = ''
-                    change_ev = structs.TextDocumentContentChangeEvent(text=_change_str, range=_range)
-                    changes.append(change_ev)
-                elif match.b > ib: # changed line(s)
-                    start = structs.Position(line=ia, character=0)
-                    end = structs.Position(line=match.a-1, character=len(oldspl[match.a-1]))
-                    _range = structs.Range(start=start, end=end)
-                    _change_str = ''.join(newspl[ib:match.b])
-                    change_ev = structs.TextDocumentContentChangeEvent(text=_change_str, range=_range)
-                    changes.append(change_ev)
-                else:
-                    raise Exception('Match block c? - before (should_never_happen_tm):' + str((ia, ib, match)))
-            else:
-                raise Exception('Match block a - before (should_never_happen_tm):' + str((ia, ib, match)))
+        _start_time = time.time()
+        while True:
+            if time.time() - _start_time > 0.1:
+                # taken too long, send whole doc
+                changes.clear()
+                changes.append(structs.TextDocumentContentChangeEvent(text=self._txt))
+                break
 
-            ia = match.a + match.size
-            ib = match.b + match.size
+            # matches example: [Match(a=0, b=0, size=4), Match(a=4, b=5, size=0)]
+            opc = SequenceMatcher(a=oldspl, b=newspl).get_opcodes()
+
+            opclen = len(opc)
+            if opclen == 0  or  (opclen == 1 and opc[0][0] == 'equal'):
+                break
+
+            tag, i1,i2, j1,j2 = opc[0]  if opc[0][0] != 'equal' else  opc[1]
+            if tag == 'replace':    # a[i1:i2] should be replaced by b[j1:j2].
+                _start = structs.Position(line=i1, character=0)
+                _end = structs.Position(line=i2-1, character=len(oldspl[i2-1]))
+                range_ = structs.Range(start=_start, end=_end)
+                change_str = ''.join(newspl[j1:j2])
+
+                # apply change to splits
+                oldspl[i1:i2] = newspl[j1:j2]
+
+            elif tag == 'delete':   # a[i1:i2] should be deleted
+                _start = structs.Position(line=i1, character=0)
+                _end = structs.Position(line=i2-1, character=len(oldspl[i2-1]))
+                range_ = structs.Range(start=_start, end=_end)
+                change_str = ''
+
+                # apply change to splits
+                del oldspl[i1:i2]
+
+            elif tag == 'insert':   # b[j1:j2] should be inserted at a[i1:i1]
+                _start = structs.Position(line=i1, character=0)
+                _end = _start
+                range_ = structs.Range(start=_start, end=_end)
+                change_str = ''.join(newspl[j1:j2])
+
+                # apply change to splits
+                oldspl[i1:i1] = newspl[j1:j2]
+
+            else:
+                raise Exception('INVALID opcodes: {opc}')
+
+            change_ev = structs.TextDocumentContentChangeEvent(text=change_str, range=range_)
+            changes.append(change_ev)
 
         if changes:
             self._ver += 1
+
         return changes
 
     def get_text_all(self):

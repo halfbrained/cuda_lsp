@@ -39,9 +39,10 @@ fn_opt_descr = os.path.join(_plugin_dir, 'readme', 'options_description.md')
 
 SEVERS_SHUTDOWN_MAX_TIME = 2 # seconds
 SEVERS_SHUTDOWN_CHECK_PERIOD = 0.1 # seconds
+LINT_STYLE_MAP = {0:1, 1:4, 2: 2, 3:6}
 
 opt_enable_mouse_hover = True
-opt_root_dir_source = 0 # 0 - from project parent dir,  1 - first project dir/node
+opt_root_dir_source = [0]
 opt_send_change_on_request = False
 opt_hover_max_lines = 10
 opt_hover_additional_commands = [
@@ -52,6 +53,8 @@ opt_hover_additional_commands = [
     "Type definition",
 ]
 opt_cudatext_in_py_env = False
+opt_lint_type = 'b'
+opt_lint_underline_style = 2  # solid 0, dotted 1, dashes 2, wave 3
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
@@ -92,6 +95,7 @@ https://microsoft.github.io/language-server-protocol/specifications/specificatio
 * () on functions completion?
 * 'hover' dialog -- add  context menu - apply any lexer
 * separate log panel for server's `LogMessage`
+* unregistering capabilities
 
 
 #TODO features
@@ -194,6 +198,16 @@ class Command:
         se = Editor(ed.get_prop(PROP_HANDLE_SECONDARY))
         se.set_prop(PROP_WRAP, True)
 
+        # underline demo
+        underline = {'"solid"':  1, '"dotted"': 4, '"dashes"': 2, '"wave"':   6, }
+        _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        err_col = _colors['EdMicromapSpell']['color']
+        for text,style in underline.items():
+            res = se.action(EDACTION_FIND_ONE, text, "c")
+            if res:
+                se.attr(MARKERS_ADD, x=res[0], y=res[1], len=res[2]-res[0],
+                            color_border=err_col, border_down=style)
+
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
         if not self.is_loading_sesh:
@@ -276,6 +290,7 @@ class Command:
             if oldlex != newlex:
                 if doc.lang:
                     doc.lang.on_close(doc) # sends on_close to server
+                doc.update()
                 self.on_open(ed_self) # changes/removes lang server of doc
         else:    # create doc if new lexer is supported by lsp server
             self.on_open(ed_self)
@@ -358,12 +373,19 @@ class Command:
         elif state == APPSTATE_PROJECT:
             new_project_dir = get_project_dir()
             if self._project_dir != new_project_dir  and  self._langs:
-                print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; restarting servers...')
-                self.shutdown_all_servers()
+                print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; notifying servers...')
 
-                # on_open visible eds
+                for name,lang in list(self._langs.items()):
+                    handled = lang.on_rootdir_change(new_project_dir)
+                    if not handled:
+                        self.shutdown_server(name=name)
+
+                # on_open visible eds/docs without lang
                 for edt in get_visible_eds():
-                    self.on_open(edt)
+                    doc = self.book.get_doc(edt)
+                    if not doc  or  not doc.lang:
+                        self.on_open(edt)
+
 
     def on_exit(self, *args, **vargs):
         # start servers shutdown
@@ -402,7 +424,11 @@ class Command:
                     cfg['work_dir'] = self._project_dir
 
                     try:
-                        lang = Language(cfg, cmds=self._hint_cmds)
+                        lang = Language(cfg,
+                                cmds=self._hint_cmds,
+                                lintstr=opt_lint_type,
+                                underline_style=LINT_STYLE_MAP[opt_lint_underline_style],
+                        )
                     except ValidationError:
                         servers_cfgs.remove(cfg) # dont nag on every on_open
                         raise
@@ -563,6 +589,8 @@ class Command:
         global opt_hover_max_lines
         global opt_hover_additional_commands
         global opt_cudatext_in_py_env
+        global opt_lint_type
+        global opt_lint_underline_style
 
         # general cfg
         if os.path.exists(fn_config):
@@ -584,6 +612,11 @@ class Command:
             opt_hover_max_lines = j.get('hover_dlg_max_lines', opt_hover_max_lines)
             opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
             opt_cudatext_in_py_env = j.get('cudatext_in_py_env', opt_cudatext_in_py_env)
+            opt_lint_type = j.get('lint_type', opt_lint_type)
+
+            _opt_lint_underline_style = j.get('lint_underline_style', opt_lint_underline_style)
+            if _opt_lint_underline_style in LINT_STYLE_MAP:
+                opt_lint_underline_style = _opt_lint_underline_style
 
             # hidden,dbg
             opt_manual_didopen = j.get('manual_didopen', None)
@@ -642,6 +675,8 @@ class Command:
             'hover_dlg_max_lines': opt_hover_max_lines,
             'hover_additional_commands': opt_hover_additional_commands,
             'cudatext_in_py_env': opt_cudatext_in_py_env,
+            'lint_type': opt_lint_type,
+            'lint_underline_style': opt_lint_underline_style,
         }
         if opt_manual_didopen is not None:
             j['manual_didopen'] = opt_manual_didopen

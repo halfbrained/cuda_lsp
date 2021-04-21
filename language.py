@@ -45,7 +45,7 @@ from .sansio_lsp_client.structs import (
         MarkupKind,
         MarkedString,
         FormattingOptions,
-        #WorkspaceFolder,
+        WorkspaceFolder,
     )
 
 #_   = get_translation(__file__)  # I18N
@@ -83,7 +83,7 @@ RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
 
 class Language:
-    def __init__(self, cfg, cmds=None):
+    def __init__(self, cfg, cmds=None, lintstr='', underline_style=None):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
 
         self._cfg = cfg
@@ -114,7 +114,7 @@ class Language:
         self._client = None
 
         self.request_positions = {} # RequestPos
-        self.diagnostics_man = DiagnosticsMan()
+        self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
 
         self._closed = False
         self.sock = None
@@ -133,9 +133,12 @@ class Language:
     def client(self):
         if self._client is None:
             root_uri = path_to_uri(self._work_dir) if self._work_dir else None
+            # for now just a single folder in workspace
+            wsfolders = [ WorkspaceFolder(uri=root_uri, name='Root'), ]  if self._work_dir else None
+
             self._client = lsp.Client(
                 root_uri=root_uri,
-                #workspace_folders=[ WorkspaceFolder(uri=path_to_uri(path), name='...'), ],
+                workspace_folders=wsfolders,
                 process_id=os.getpid(),
             )
             self._start_server()
@@ -154,6 +157,7 @@ class Language:
             if opts:
                 return True
         return False
+
 
 
     def _start_server(self):
@@ -455,6 +459,22 @@ class Language:
                 text = eddoc.ed.get_text_all() if  include_text  else None
                 self.client.did_save(text_document=docid, text=text)
 
+    def on_rootdir_change(self, newroot):
+        if self._client is not None  and  self.client.is_initialized:
+            opts = self.scfg.method_opts(METHOD_WS_FOLDERS)
+            if opts  and  opts.get('supported')  and  opts.get('changeNotifications'):
+                removed = [] # emptys if no folder
+                added = []
+                if self._work_dir:
+                    old_root_uri = path_to_uri(self._work_dir)
+                    removed.append(WorkspaceFolder(uri=old_root_uri, name='Root'))
+                if newroot:
+                    new_root_uri = path_to_uri(newroot) if newroot else None
+                    added.append(WorkspaceFolder(uri=new_root_uri, name='Root'))
+                self._work_dir = newroot
+
+                self.client.did_change_workspace_folders(removed=removed, added=added)
+                return True
 
     def _action_by_name(self, method_name, eddoc, caret=None):
         if self.client.is_initialized:
@@ -736,16 +756,30 @@ class DiagnosticsMan:
             - clear,reaply diags if visible
     """
 
-    def __init__(self):
+    LINT_NONE = 100
+    LINT_BOOKMARK = 101
+    LINT_DECOR = 102
+
+    def __init__(self, lintstr=None, underline_style=2):
         self.uri_diags = {} # uri -> diag?
         self.dirtys = set() # uri
 
-        # load icons, disable line highlight
-        for severity,kind in DIAG_BM_KINDS.items():
-            _icon_path = DIAG_BM_IC_PATHS[severity]
-            ed.bookmark(BOOKMARK_SETUP, 0, nkind=kind, ncolor=COLOR_NONE, text=_icon_path)
+        self._linttype = None  # gutter icons
+        self._highlight_bg = False
+        self._highlight_text = False
+        self._underline_style = underline_style
+
+        self._load_lint_type(lintstr)
+
+        # icons and bg col
+        self._decor_serverity_ims = {} # ed handle -> {severity : im ind}
+
+        self._setup_bookmark_gutter()
 
     def on_doc_shown(self, eddoc):
+        if not self._linttype:
+            return
+
         # if dirty - update
         if eddoc.uri in self.dirtys:
             self.dirtys.remove(eddoc.uri)
@@ -753,7 +787,10 @@ class DiagnosticsMan:
             self._apply_diagnostics(eddoc.ed, self.uri_diags[eddoc.uri])
 
     def set_diagnostics(self, uri, diag_list):
-        if len(diag_list) > 0:
+        if not self._linttype:
+            return
+
+        if len(diag_list) > 0  or  self.uri_diags.get(uri):
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
                 if uri == ed_uri(ed):
@@ -762,31 +799,125 @@ class DiagnosticsMan:
                 self.dirtys.add(uri)
 
     def _apply_diagnostics(self, ed, diag_list):
-        # clear old
-        ed.bookmark(BOOKMARK_DELETE_BY_TAG, 0, tag=DIAG_BM_TAG)
+        if self._linttype  or  self._highlight_bg:
+            self._clear_old(ed)
 
-        # set new
+            if self._linttype == DiagnosticsMan.LINT_DECOR:
+                h_ed = ed.get_prop(PROP_HANDLE_SELF)
+                if h_ed not in self._decor_serverity_ims:
+                    self._setup_decor_gutter(ed)
+                decor_im_map = self._decor_serverity_ims[h_ed]
+
+            ### set new
+            # get dict of lines for gutter
+            line_diags = self._get_gutter_data(diag_list)
+
+            err_ranges = []  # tuple(x,y,len)
+            # apply gutter to editor
+            for nline,diags in line_diags.items():
+                severity_la = lambda d: d.severity or 9
+                if self._linttype == DiagnosticsMan.LINT_DECOR:
+                    decor_severity = min(severity_la(d) for d in diags) # most severe severity  for decor
+                else:
+                    diags.sort(key=severity_la) # important first, None - last
+
+                # get msg-lines for bookmark hover
+                msg_lines = []
+                for d in diags:
+                    kind = DIAG_BM_KINDS.get(d.severity, DIAG_DEFAULT_SEVERITY)
+                    #TODO fix ugly... (.severity and .code -- can be None)
+                    pre,post = ('[',']: ') if (d.severity is not None  or  d.code) else  ('','')
+                    mid = ':' if (d.severity is not None  and  d.code) else ''
+
+                    severity_short = d.severity.short_name() if d.severity else ''
+                    # "[severity:code] message"
+                    code = str(d.code)  if d.code is not None else  ''
+                    text = ''.join([pre, severity_short, mid, code, post, d.message])
+                    msg_lines.append(text)
+
+                # gather err ranges
+                for d in diags:
+                    x0,y0 = d.range.start.character, d.range.start.line
+                    x1,y1 = d.range.end.character, d.range.end.line
+                    if y0 == y1:   # single line (shortcut for common case)
+                        err_ranges.append((x0, y0, x1-x0))
+                    else: # multiline
+                        for linen in range(y0, y1):
+                            linelen = len(ed.get_text_line(linen))
+                            mx0 = x0  if linen == y0 else  0
+                            mx1 = linelen
+                            err_ranges.append((mx0, y0, mx1-mx0))
+
+                        err_ranges.append((0, y1, x1)) # last line
+
+
+                # set bookmark or decor
+                if self._linttype == DiagnosticsMan.LINT_DECOR:
+                    if decor_severity == 9:
+                        decor_severity = DIAG_DEFAULT_SEVERITY
+                    ed.decor(DECOR_SET, line=nline, image=decor_im_map[decor_severity])
+                else:
+                    text = '\n'.join(msg_lines)
+                    ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text=text, tag=DIAG_BM_TAG)
+            #end for line_diags
+
+            # underline error text ranges
+            if self._highlight_text  and  err_ranges:
+                _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+                err_col = _colors['EdMicromapSpell']['color']
+                xs,ys,lens = list(zip(*err_ranges))
+                self.last_err_ranges = err_ranges
+
+                ed.attr(MARKERS_ADD_MANY,  tag=DIAG_BM_TAG,  x=xs,  y=ys,  len=lens,
+                            color_border=err_col,  border_down=self._underline_style)
+
+
+
+    def _get_gutter_data(self, diag_list):
         line_diags = defaultdict(list) # line -> list of diagnostics
         for d in diag_list:
             line_diags[d.range.start.line].append(d)
+        return line_diags
 
-        for nline,diags in line_diags.items():
-            diags.sort(key=lambda d: d.severity or 9) # important first, None - last
+    def _clear_old(self, ed):
+        # gutter
+        if self._linttype == DiagnosticsMan.LINT_DECOR:
+            ed.decor(DECOR_DELETE_BY_TAG, tag=DIAG_BM_TAG)
+        else:
+            ed.bookmark(BOOKMARK_DELETE_BY_TAG, 0, tag=DIAG_BM_TAG)
 
-            msg_lines = []
-            for d in diags:
-                kind = DIAG_BM_KINDS.get(d.severity, DIAG_DEFAULT_SEVERITY)
-                #TODO fix ugly... (.severity and .code -- can be None)
-                pre,post = ('[',']: ') if (d.severity is not None  or  d.code) else  ('','')
-                mid = ':' if (d.severity is not None  and  d.code) else ''
+        # text err underline
+        if self._highlight_text:
+            ed.attr(MARKERS_DELETE_BY_TAG, tag=DIAG_BM_TAG)
 
-                severity_short = d.severity.short_name() if d.severity else ''
-                # "[severity:code] message"
-                code = str(d.code)  if d.code is not None else  ''
-                text = ''.join([pre, severity_short, mid, code, post, d.message])
-                msg_lines.append(text)
+    def _load_lint_type(self, lintstr):
+        if lintstr:
+            self._highlight_text = lintstr and 'c' in lintstr
+            if 'B' in lintstr  or  'b' in lintstr:
+                self._linttype = DiagnosticsMan.LINT_BOOKMARK
+                self._highlight_bg = 'B' in lintstr
+            elif 'd' in lintstr:
+                self._linttype = DiagnosticsMan.LINT_DECOR
+            else:
+                self._linttype = DiagnosticsMan.LINT_NONE
 
-            ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text='\n'.join(msg_lines), tag=DIAG_BM_TAG)
+    def _setup_bookmark_gutter(self):
+        if self._linttype or self._highlight_bg:
+            icon_paths = DIAG_BM_IC_PATHS  if self._linttype != DiagnosticsMan.LINT_NONE else  {}
+            ncolor = COLOR_DEFAULT  if self._highlight_bg else  COLOR_NONE
+            for severity,kind in DIAG_BM_KINDS.items():
+                icon_path = icon_paths.get(severity, '')
+                ed.bookmark(BOOKMARK_SETUP, 0, nkind=kind, ncolor=ncolor, text=icon_path)
+
+    def _setup_decor_gutter(self, ed):
+        icon_paths = DIAG_BM_IC_PATHS
+        for severity,kind in DIAG_BM_KINDS.items():
+            icon_path = icon_paths.get(severity, '')
+            _h_im = ed.decor(DECOR_GET_IMAGELIST)
+            _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
+            _h_ed = ed.get_prop(PROP_HANDLE_SELF)
+            self._decor_serverity_ims.setdefault(_h_ed, {})[severity] = _ind
+
 
 
 METHOD_DID_OPEN         = 'textDocument/didOpen'
@@ -806,6 +937,10 @@ METHOD_DOC_SYMBOLS      = 'textDocument/documentSymbol'
 METHOD_FORMAT_DOC       = 'textDocument/formatting'
 METHOD_FORMAT_SEL       = 'textDocument/rangeFormatting'
 
+# client method(s)
+METHOD_WS_FOLDERS = 'workspace/workspaceFolders'
+
+
 CAPABILITY_DID_OPEN         = 'textDocument.didOpen'
 CAPABILITY_DID_CLOSE        = 'textDocument.didClose'
 CAPABILITY_DID_SAVE         = 'textDocument.didSave' # options: (supported, includeText)
@@ -821,6 +956,7 @@ CAPABILITY_TYPEDEF          = 'textDocument.typeDefinition'
 CAPABILITY_DOC_SYMBOLS      = 'textDocument.documentSymbol'
 CAPABILITY_FORMAT_DOC       = 'textDocument.formatting'
 CAPABILITY_FORMAT_SEL       = 'textDocument.rangeFormatting'
+CAPABILITY_WORKSPACE_FOLDERS = 'workspace.workspaceFolders'
 
 METHOD_PROVIDERS = {
     METHOD_COMPLETION       : 'completionProvider',
@@ -833,7 +969,7 @@ METHOD_PROVIDERS = {
     METHOD_TYPEDEF          : 'typeDefinitionProvider',
     METHOD_DOC_SYMBOLS      : 'documentSymbolProvider',
     METHOD_FORMAT_DOC       : 'documentFormattingProvider',
-    METHOD_FORMAT_DOC       : 'documentRangeFormattingProvider',
+    METHOD_FORMAT_SEL       : 'documentRangeFormattingProvider',
 
     #METHOD_WS_SYMBOLS       : '',
 }
@@ -873,7 +1009,21 @@ class ServerConfig:
             _opts = {**_default_opts, 'syncKind': _docsynckind}
             self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
 
-        # ~other static capabilites
+        ### WORKSPACE
+        workspace = capabilities.get('workspace')
+        if workspace:
+            # workspaceFolders
+            wsfolders = workspace.get('workspaceFolders', {})
+            _opts = {
+                #**_default_opts, # -- no need for workspace methods
+                'supported': wsfolders.get('supported', False),
+                'changeNotifications': wsfolders.get('changeNotifications', False),
+            }
+            _reg = Registration(id='0', method=METHOD_WS_FOLDERS, registerOptions=_opts)
+            self.capabs.append(_reg)
+
+
+        ### ~other static capabilites
         for meth,prov in METHOD_PROVIDERS.items():
             capval = capabilities.get(prov, False)
             if capval is False:
@@ -893,20 +1043,27 @@ class ServerConfig:
     def method_opts(self, method_name, doc=None, ed_self=None, langid=None):
         """ returns: options dict or None
         """
-        #if method_name is None:
-            #method_name = capab_name.replace('.', '/')
-        if ed_self is None:
-            ed_self = doc.ed
-        if langid is None:
-            langid = doc.langid
+        if method_name.startswith('textDocument/'):
+            if ed_self is None:
+                ed_self = doc.ed
+            if langid is None:
+                langid = doc.langid
 
-        for registration in self.capabs:
-            if registration.method == method_name:
-                if ServerConfig.match_capability(registration, ed_self, langid):
+            for registration in self.capabs:
+                if registration.method == method_name:
+                    if ServerConfig.match_capability(registration, ed_self, langid):
+                        return registration.registerOptions
+
+            if method_name != METHOD_DID_OPEN:
+                print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
+
+        elif method_name.startswith('workspace/'):
+            for registration in self.capabs:
+                if registration.method == method_name:
                     return registration.registerOptions
 
-        if method_name != METHOD_DID_OPEN:
-            print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
+        elif LOG:
+            print(f'NOTE: {LOG_NAME}: odd method: {method_name}')
 
 
     # "selector is one ore more filters"
