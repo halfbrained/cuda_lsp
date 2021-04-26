@@ -63,10 +63,16 @@ caption=LSP Client\Format selection
 method=call_format_sel
 
 
-;[item30]
-;section=commands
-;caption=LSP Client\-
-;method=_
+[item35]
+section=commands
+caption=LSP Client\-
+method=_
+
+[item36]
+section=commands
+caption=LSP Client\Configure server for current project
+method=config_server
+
 
 ;[item31]
 ;section=commands

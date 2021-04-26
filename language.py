@@ -351,7 +351,8 @@ class Language:
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
 
         elif msgtype == events.ConfigurationRequest:
-            msg.reply()
+            cfgs = [ServerConfig.get_configuration(self._cfg, cfgitem) for cfgitem in msg.items]
+            msg.reply(cfgs)
 
         elif msgtype == events.LogMessage:
             # abandoning server - ignore logs
@@ -1145,6 +1146,17 @@ class ServerConfig:
                 #print(f'* Unsupported function by server: {name}')
                 res[name] = None  # None denotes unsupported command - dimmed in hover dlg
         return res
+
+    def get_configuration(cfg, req):
+        """ cfg - user server config
+            req - server's request -- ConfigurationItem
+        """
+        settings = cfg.get('settings', {})
+        if req.section:
+            return settings.get(req.section, {})
+        else:
+            return settings
+
 
     def prepare_env(env_paths):
         if not env_paths:       return

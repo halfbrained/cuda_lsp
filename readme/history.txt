@@ -1,3 +1,6 @@
+2021.04.26
++ add: server configuration - "workspace/configuration"
+
 2021.04.19
 + add: options - 'lint_type' and 'lint_underline_style'
 

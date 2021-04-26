@@ -151,6 +151,20 @@ def get_project_dir():
         if path:
             return path
 
+def get_project_lsp_cfg_path():
+    import cuda_project_man
+
+    fn_proj = cuda_project_man.global_project_info.get('filename')
+    if fn_proj:
+        return os.path.splitext(fn_proj)[0] + '.cuda-proj-lsp'
+
+def get_project_lsp_cfg():
+    fn_cfg = get_project_lsp_cfg_path()
+    if fn_cfg  and  os.path.exists(fn_cfg):
+        with open(fn_cfg, 'r', encoding='utf-8') as f:
+            return _json_loads(f.read())
+
+
 
 class Command:
 
@@ -207,6 +221,18 @@ class Command:
             if res:
                 se.attr(MARKERS_ADD, x=res[0], y=res[1], len=res[2]-res[0],
                             color_border=err_col, border_down=style)
+
+    def config_server(self):
+        fn_cfg = get_project_lsp_cfg_path()
+        if fn_cfg:
+            if not os.path.exists(fn_cfg):
+                with open(fn_cfg, 'w', encoding='utf-8') as f:
+                    f.write('{\n    \n}\n')
+            file_open(fn_cfg)
+            ed.set_prop(PROP_LEXER_FILE, 'JSON')
+        else:
+            msg_status('No project opened')
+
 
     #NOTE alse gets called for unsaved from session
     def on_open(self, ed_self):
@@ -418,7 +444,14 @@ class Command:
             # no server exists for this langid, try to create
             for cfg in servers_cfgs:
                 if langid in cfg.get('langids', []):
+                    from copy import deepcopy
                     from .language import Language
+
+                    cfg = deepcopy(cfg)
+
+                    # update server 'settings' with project's lsp server settings
+                    proj_lsp_cfg = get_project_lsp_cfg()
+                    cfg.setdefault('settings', {}).update(proj_lsp_cfg or {})
 
                     self._project_dir = get_project_dir()
                     cfg['work_dir'] = self._project_dir
@@ -580,6 +613,7 @@ class Command:
         doc = self.book.get_doc(ed_self)
         lang.on_open(doc)
         doc.update(lang=lang)
+
 
     def _load_config(self):
         global opt_enable_mouse_hover

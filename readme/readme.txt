@@ -29,6 +29,28 @@ It creates the script "~/.local/bin/pyls". Basic config would look like this:
   }
 
 
+Server Configuration
+--------------------
+Some servers can be additionally configured, this configuration can be placed in the server
+config file or or in the project via command - "Configure server for current project"
+Examples of config for the golan server - "gopls":
+* lsp_go.json
+  ...
+  "settings": {
+  	"gopls": {
+  	  	"hoverKind": "NoDocumentation"
+  	}
+  }
+  ...
+
+* project config:
+  {
+    "gopls":{
+      "hoverKind": "NoDocumentation"
+    }
+  }
+
+
 Options
 -------
 Plugin supports 3 keys for running commands:
