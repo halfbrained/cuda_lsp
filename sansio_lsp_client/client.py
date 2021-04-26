@@ -30,6 +30,14 @@ from .events import (
     RegisterCapabilityRequest,
     MDocumentSymbols,
     DocumentFormatting,
+    Progress,
+    WorkDoneProgress,
+    WorkDoneProgressCreate,
+    WorkDoneProgressBegin,
+    WorkDoneProgressReport,
+    WorkDoneProgressEnd,
+    ConfigurationRequest,
+    WorkspaceFolders,
 )
 from .structs import (
     Response,
@@ -75,6 +83,10 @@ CAPABILITIES = {
             #'willSaveWaitUntil': True,
             'dynamicRegistration': True,
             #'willSave': True
+        },
+
+        'publishDiagnostics': {
+            'relatedInformation': True
         },
 
         'completion': {
@@ -138,6 +150,15 @@ CAPABILITIES = {
         },
     },
 
+    'window': {
+        'showMessage': {
+            #'messageActionItem': {
+                #'additionalPropertiesSupport': True
+            #}
+        },
+        'workDoneProgress': True
+    },
+
     'workspace': {
         'symbol': {
             'dynamicRegistration': True,
@@ -153,10 +174,10 @@ CAPABILITIES = {
         #},
         #'applyEdit': True,
         #'executeCommand': {},
-        #'configuration': True,
-        #'didChangeConfiguration': {
-            #'dynamicRegistration': True
-        #}
+        'configuration': True,
+        'didChangeConfiguration': {
+            'dynamicRegistration': True
+        }
     },
 }
 
@@ -187,6 +208,9 @@ class Client:
         # bignums, but I think that's an unlikely enough case that checking for
         # it would just litter the code unnecessarily.
         self._id_counter = 0
+
+        # Store type of '$/progress' for parsing
+        self._progress_tokens_map: t.Dict[ProgressToken, t.Type[Progress]] = {}
 
         # prepare workspace folders for sending -- to `dict`
         if workspace_folders:
@@ -248,7 +272,7 @@ class Client:
 
         if request.method == "initialize":
             assert self._state == ClientState.WAITING_FOR_INITIALIZED
-            self._send_notification("initialized")
+            self._send_notification("initialized", params={}) # 'gopls' doesnt recognise 'None' 'params'
             event = Initialized.parse_obj(response.result)
             self._state = ClientState.NORMAL
 
@@ -345,7 +369,10 @@ class Client:
                 )
 
         if request.method == "workspace/workspaceFolders":
-            return parse_request()
+            return parse_request(WorkspaceFolders)
+
+        elif request.method == "workspace/configuration":
+            return parse_request(ConfigurationRequest)
 
         elif request.method == "window/showMessage":
             return parse_request(ShowMessage)
@@ -353,13 +380,32 @@ class Client:
             return parse_request(ShowMessageRequest)
         elif request.method == "window/logMessage":
             return parse_request(LogMessage)
+
         elif request.method == "textDocument/publishDiagnostics":
             return parse_request(PublishDiagnostics)
 
+        elif request.method == "window/workDoneProgress/create":
+            ev = parse_request(WorkDoneProgressCreate)
+            self._progress_tokens_map[request.params['token']] = WorkDoneProgress
+            return parse_request(WorkDoneProgressCreate)
+
+        elif request.method == "$/progress":
+            progress_type = self._progress_tokens_map.get(request.params['token'])
+
+            if progress_type == WorkDoneProgress:
+                kind = request.params.get('value', {}).get('kind')
+                if kind == 'begin':
+                    return parse_request(WorkDoneProgressBegin)
+                elif kind == 'report':
+                    return parse_request(WorkDoneProgressReport)
+                elif kind == 'end':
+                    del self._progress_tokens_map[request.params["token"]]
+                    return parse_request(WorkDoneProgressEnd)
+
         elif request.method == "client/registerCapability":
             return parse_request(RegisterCapabilityRequest)
-        else:
-            raise NotImplementedError(request)
+
+        raise NotImplementedError(request)
 
     def recv(self, data: bytes, errors: t.Optional[list] = None) -> t.List[Event]:
         self._recv_buf += data
@@ -394,7 +440,7 @@ class Client:
 
     def exit(self) -> None:
         assert self._state == ClientState.SHUTDOWN
-        self._send_notification(method="exit")
+        self._send_notification(method="exit", params={})
         self._state = ClientState.EXITED
 
     def cancel_last_request(self) -> None:

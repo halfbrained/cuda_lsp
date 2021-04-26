@@ -12,6 +12,8 @@ JSONDict = t.Dict[str, t.Any]
 
 Id = t.Union[int, str]
 
+ProgressToken = t.Union[int, str]
+
 
 class Request(BaseModel):
     method: str
@@ -269,7 +271,6 @@ class Diagnostic(BaseModel):
 
     relatedInformation: t.Optional[t.List[DiagnosticRelatedInformation]]
 
-# new ##################
 """ HOVER #################
 Hover:
     * contents: MarkedString | MarkedString[] | MarkupContent;
@@ -408,3 +409,33 @@ class FormattingOptions(BaseModel):
 class WorkspaceFolder(BaseModel):
     uri: str
     name: str
+
+
+
+class ProgressValue(BaseModel):
+    pass
+
+class WorkDoneProgressValue(ProgressValue):
+    pass
+
+class WorkDoneProgressBeginValue(WorkDoneProgressValue):
+    kind: str = 'begin'
+    title: str
+    cancellable: t.Optional[bool]
+    message: t.Optional[str]
+    percentage: t.Optional[int]
+
+class WorkDoneProgressReportValue(WorkDoneProgressValue):
+    kind: str = 'report'
+    cancellable: t.Optional[bool]
+    message: t.Optional[str]
+    percentage: t.Optional[int]
+
+class WorkDoneProgressEndValue(WorkDoneProgressValue):
+    kind: str = 'end'
+    message: t.Optional[str]
+
+
+class ConfigurationItem(BaseModel):
+    scopeUri: t.Optional[str]
+    section: t.Optional[str]

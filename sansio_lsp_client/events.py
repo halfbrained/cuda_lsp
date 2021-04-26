@@ -26,6 +26,12 @@ from .structs import (
     Registration,
     DocumentSymbol,
     WorkspaceFolder,
+    ProgressToken,
+    ProgressValue,
+    WorkDoneProgressBeginValue,
+    WorkDoneProgressReportValue,
+    WorkDoneProgressEndValue,
+    ConfigurationItem,
 )
 
 Id = t.Union[int, str]
@@ -78,6 +84,28 @@ class LogMessage(ServerNotification):
     type: MessageType
     message: str
 
+class WorkDoneProgressCreate(ServerRequest):
+    token: ProgressToken
+
+    def reply(self) -> None:
+        self._client._send_response(id=self._id, result=None)
+
+class Progress(ServerNotification):
+    token: ProgressToken
+    value: ProgressValue
+
+class WorkDoneProgress(Progress):
+    pass
+
+class WorkDoneProgressBegin(WorkDoneProgress):
+    value: WorkDoneProgressBeginValue
+
+class WorkDoneProgressReport(WorkDoneProgress):
+    value: WorkDoneProgressReportValue
+
+class WorkDoneProgressEnd(WorkDoneProgress):
+    value: WorkDoneProgressEndValue
+
 
 # XXX: should these two be just Events or?
 class Completion(Event):
@@ -95,7 +123,6 @@ class PublishDiagnostics(ServerNotification):
     diagnostics: t.List[Diagnostic]
 
 
-# NEW ##################
 """ Hover:
     * contents: MarkedString | MarkedString[] | MarkupContent;
     * range?: Range;
@@ -197,3 +224,10 @@ class WorkspaceFolders(ServerRequest):
         self._client._send_response(
             id=self._id, result=[f.dict() for f in folders] if folders is not None else None
         )
+
+class ConfigurationRequest(ServerRequest):
+    items: t.List[ConfigurationItem]
+
+    def reply(self) -> None:
+        self._client._send_response(id=self._id,  result=[None])
+

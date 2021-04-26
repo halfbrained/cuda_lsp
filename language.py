@@ -115,6 +115,7 @@ class Language:
 
         self.request_positions = {} # RequestPos
         self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
+        self.progresses = {} # token -> progress start message
 
         self._closed = False
         self.sock = None
@@ -133,12 +134,9 @@ class Language:
     def client(self):
         if self._client is None:
             root_uri = path_to_uri(self._work_dir) if self._work_dir else None
-            # for now just a single folder in workspace
-            wsfolders = [ WorkspaceFolder(uri=root_uri, name='Root'), ]  if self._work_dir else None
-
             self._client = lsp.Client(
                 root_uri=root_uri,
-                workspace_folders=wsfolders,
+                workspace_folders=self.workspace_folders,
                 process_id=os.getpid(),
             )
             self._start_server()
@@ -147,6 +145,15 @@ class Language:
     @property
     def client_state_str(self):
         return (self._client.state.name).title()  if self._client is not None else  'Not started'
+
+    @property
+    def workspace_folders(self):
+        if self._work_dir:
+            # for now just a single folder in workspace
+            root_uri = path_to_uri(self._work_dir)
+            return [ WorkspaceFolder(uri=root_uri, name='Root'), ]
+        else:
+            return None
 
     def is_client_exited(self):
         return self._client.state == lsp.ClientState.EXITED
@@ -157,7 +164,6 @@ class Language:
             if opts:
                 return True
         return False
-
 
 
     def _start_server(self):
@@ -283,8 +289,8 @@ class Language:
             self.process_queues()
             app_proc(PROC_EXEC_PLUGIN, 'cuda_lsp,on_lang_inited,'+self.name)
 
-        #elif msgtype == events.WorkplaceFolders:
-            #msg.reply(folders=...)
+        elif msgtype == events.WorkspaceFolders:
+            msg.reply(folders=self.workspace_folders)
 
         elif msgtype == events.Completion:
             items = msg.completion_list.items
@@ -344,6 +350,9 @@ class Language:
         elif msgtype == events.PublishDiagnostics:
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
 
+        elif msgtype == events.ConfigurationRequest:
+            msg.reply()
+
         elif msgtype == events.LogMessage:
             # abandoning server - ignore logs
             if self._shutting_down is not None:
@@ -355,6 +364,12 @@ class Language:
             app_log(LOG_ADD, 'LSP_MSG:{}: {}'.format(msg.type.name, lines[0]), panel=LOG_PANEL_OUTPUT)
             for line in lines[1:]:
                 app_log(LOG_ADD, line, panel=LOG_PANEL_OUTPUT)
+
+        elif msgtype == events.ShowMessage:
+            print(f'{LOG_NAME}: {self.lang_str}: [{msg.type.name.title()}] {msg.message}')
+
+        elif isinstance(msg, events.WorkDoneProgressCreate)  or  issubclass(msgtype, events.Progress):
+            self._on_progress(msg)
 
         elif msgtype == events.Shutdown:
             print(f'{LOG_NAME}: {self.lang_str}[{self.client_state_str}] - got shutdown response, exiting')
@@ -432,6 +447,7 @@ class Language:
                 doc = eddoc.get_textdoc()
                 self.client.did_open(doc)
                 return True
+
 
     def on_close(self, eddoc):
         if self.client.is_initialized:
@@ -690,6 +706,32 @@ class Language:
             timer_proc(TIMER_STOP, self.process_queues, 0)
 
 
+    def _on_progress(self, msg):
+        if isinstance(msg, events.WorkDoneProgressCreate):
+            self.progresses[msg.token] = None
+            msg.reply()
+
+        elif isinstance(msg, events.WorkDoneProgress):
+            val = msg.value
+            title = None
+            if isinstance(msg, events.WorkDoneProgressBegin):
+                self.progresses[msg.token] = msg
+                title = val.title
+                msg_str = f': {val.message}'  if val.message else ''
+
+            elif isinstance(msg, events.WorkDoneProgressReport):
+                title = self.progresses[msg.token].value.title
+                msg_str = ''
+                if val.message:                     msg_str = f': {val.message}'
+                elif val.percentage is not None:    msg_str = f' [{val.percentage}%]'
+
+            elif isinstance(msg, events.WorkDoneProgressEnd):
+                title = self.progresses.pop(msg.token).value.title # deletes start-message
+                msg_str = f': {val.message}'  if val.message else  ' [Done]'
+
+            if title:
+                msg_status(f'{LOG_NAME}: {self.lang_str} - {title + msg_str}')
+
     def _save_req_pos(self, id, target_pos_caret=None):
         h = ed.get_prop(PROP_HANDLE_SELF)
         carets = ed.get_carets()
@@ -789,7 +831,6 @@ class DiagnosticsMan:
     def set_diagnostics(self, uri, diag_list):
         if not self._linttype:
             return
-
         if len(diag_list) > 0  or  self.uri_diags.get(uri):
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
