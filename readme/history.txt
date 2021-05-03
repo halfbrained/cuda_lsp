@@ -1,5 +1,7 @@
 2021.04.26
-+ add: server configuration - "workspace/configuration"
++ add: plugin allows to configure server per-project, using *.cuda-proj-lsp files located 
+	near *.cuda-proj file (for example Golang server supports this)`
++ add: command "Configure server for current project"`
 
 2021.04.19
 + add: options - 'lint_type' and 'lint_underline_style'
