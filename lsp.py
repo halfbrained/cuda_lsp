@@ -17,6 +17,7 @@ from .util import (
         is_ed_visible,
         command, # hides hint
         get_visible_eds,
+        collapse_path,
 
         ValidationError,
     )
@@ -163,8 +164,6 @@ def get_project_lsp_cfg():
     if fn_cfg  and  os.path.exists(fn_cfg):
         with open(fn_cfg, 'r', encoding='utf-8') as f:
             return _json_loads(f.read())
-
-
 
 class Command:
 
@@ -399,7 +398,8 @@ class Command:
         elif state == APPSTATE_PROJECT:
             new_project_dir = get_project_dir()
             if self._project_dir != new_project_dir  and  self._langs:
-                print(f'{LOG_NAME}: project root folder changed: {new_project_dir}; notifying servers...')
+                _collapsed_path = collapse_path(new_project_dir)
+                print(f'{LOG_NAME}: project root folder changed: {_collapsed_path}; notifying servers...')
 
                 for name,lang in list(self._langs.items()):
                     handled = lang.on_rootdir_change(new_project_dir)
@@ -670,7 +670,8 @@ class Command:
                     try:
                         j = _json_loads(f.read())
                     except:
-                        print(f'NOTE: {LOG_NAME}: failed to load server config: {path}')
+                        _path = collapse_path(path)
+                        print(f'NOTE: {LOG_NAME}: failed to load server config: {_path}')
                         continue
 
                 # load lex map from config
@@ -687,7 +688,8 @@ class Command:
                     py_env_paths.append(app_path(APP_DIR_PY))
 
                 if not langids:
-                    print(f'NOTE: {LOG_NAME}: sever config error - no associated lexers: {path}')
+                    _path = collapse_path(path)
+                    print(f'NOTE: {LOG_NAME}: sever config error - no associated lexers: {_path}')
                     continue
                 if 'name' not in j:
                     j['name'] = os.path.splitext(name)[0]
@@ -696,7 +698,8 @@ class Command:
             update_lexmap(user_lexids) # add user mapping to global map
 
         if not servers_cfgs:
-            print(f'NOTE: {LOG_NAME}: no server configs loaded from "{dir_settings}"')
+            _dir_settings = collapse_path(dir_settings)
+            print(f'NOTE: {LOG_NAME}: no server configs loaded from "{_dir_settings}"')
 
 
     def _save_config(self):

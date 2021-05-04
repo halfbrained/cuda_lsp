@@ -180,7 +180,7 @@ class Language:
             self._writer = self._reader
         # not port - create stdio-process
         else:
-            print(f'{LOG_NAME}: starting server - {self.lang_str}; root: {self._work_dir}')
+            print(f'{LOG_NAME}: starting server - {self.lang_str}; root: {collapse_path(self._work_dir)}')
 
             env = ServerConfig.prepare_env(self._env_paths)
 

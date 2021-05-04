@@ -54,7 +54,7 @@ def uri_to_path(uri):
     return unquote(urlparse(uri).path)
 
 def collapse_path(path):
-    if (path + os.sep).startswith(USER_DIR + os.sep):
+    if path  and  (path + os.sep).startswith(USER_DIR + os.sep):
         path = path.replace(USER_DIR, '~', 1)
     return path
 
