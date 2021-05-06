@@ -1243,11 +1243,13 @@ class CompletionMan:
                 text = item.label
 
         is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
+        _line_txt = ed.get_text_line(y2)
+        is_bracket_follows = len(_line_txt) > x2  and  _line_txt[x2] == '('
         # main edit
-        new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if is_callable else ''))
+        new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if (is_callable and not is_bracket_follows) else ''))
         # move caret at ~end of inserted text
         if new_caret:
-            if not is_callable:
+            if not is_callable or is_bracket_follows:
                 ed.set_caret(*new_caret)
             else:
                 ed.set_caret(new_caret[0] - 1,  new_caret[1])
