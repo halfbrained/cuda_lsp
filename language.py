@@ -296,30 +296,36 @@ class Language:
             items = msg.completion_list.items
             pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
             reqpos = self.request_positions.pop(msg.message_id, None)
-            if items  and  reqpos:
-                compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                compl.show_complete(msg.message_id, items)
-                self._last_complete = (compl, msg.message_id, items)
+            if items:
+                if reqpos:
+                    compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
+                    compl.show_complete(msg.message_id, items)
+                    self._last_complete = (compl, msg.message_id, items)
+            else:
+                msg_status(f'{LOG_NAME}: {self.lang_str}: Completion - no info')
 
         elif msgtype == events.Hover:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
                     first_item = msg.contents[0] if isinstance(msg.contents, list) and len(msg.contents) > 0 else msg.contents
-                    if isinstance(first_item, (MarkedString, str)):
-                        # for deprecated 'MarkedString' or 'str' default to 'markdown'
-                        markupkind = MarkupKind.MARKDOWN
-                    else:
-                        # can be a list (supposedly)
-                        markupkind = getattr(first_item, 'kind', None)
+                    if first_item: # if received anything
+                        if isinstance(first_item, (MarkedString, str)):
+                            # for deprecated 'MarkedString' or 'str' default to 'markdown'
+                            markupkind = MarkupKind.MARKDOWN
+                        else:
+                            # can be a list (supposedly)
+                            markupkind = getattr(first_item, 'kind', None)
 
-                    filtered_cmds = self.scfg.filter_commands(self._caret_cmds)
-                    Hint.show(msg.m_str(),
-                            caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
-                            markupkind=markupkind,
-                            language=getattr(first_item, 'language', None),
-                            caret_cmds=filtered_cmds,
-                    )
+                        filtered_cmds = self.scfg.filter_commands(self._caret_cmds)
+                        Hint.show(msg.m_str(),
+                                caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
+                                markupkind=markupkind,
+                                language=getattr(first_item, 'language', None),
+                                caret_cmds=filtered_cmds,
+                        )
+                    else:
+                        msg_status(f'{LOG_NAME}: {self.lang_str}: Hover - no info')
 
         elif msgtype == events.SignatureHelp:
             if msg.message_id in self.request_positions:
@@ -331,6 +337,8 @@ class Language:
                         caret_x, caret_y = _reqpos.carets[0][:2]
                         # 8 - default duration
                         msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
+                    else:
+                        msg_status(f'{LOG_NAME}: {self.lang_str}: Signature help - no info')
 
         #GOTOs
         elif msgtype in GOTO_EVENT_TYPES:
@@ -343,9 +351,12 @@ class Language:
         elif msgtype == events.DocumentFormatting:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
-                if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed  and  msg.result:
-                    for edit in msg.result:
-                        EditorDoc.apply_edit(ed, edit)
+                if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
+                    if msg.result:
+                        for edit in msg.result:
+                            EditorDoc.apply_edit(ed, edit)
+                    else:
+                        msg_status(f'{LOG_NAME}: {self.lang_str}: Document formatting - no info')
 
         elif msgtype == events.PublishDiagnostics:
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
@@ -548,7 +559,7 @@ class Language:
                 raise Exception('Invalid goto-link type: '+str(type(link)))
 
         if not items:
-            msg_status(f'{LOG_NAME}: {self.lang_str} - no results for "{dlg_caption}"')
+            msg_status(f'{LOG_NAME}: {self.lang_str}: {dlg_caption} - no info')
             return
 
         if isinstance(items, list):
