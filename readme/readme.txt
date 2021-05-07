@@ -29,14 +29,27 @@ It creates the script "~/.local/bin/pyls". Basic config would look like this:
   }
 
 
-Server configuration
---------------------
+Server options
+--------------
+Plugin supports 3 keys for running commands:
+- "cmd_windows" for Windows,
+- "cmd_macos" for macOS,
+- "cmd_unix" for all other OS.
+
+Each cmd-key must be a list of strings, e.g.
+  "cmd_windows": ["C:\\Python_folder\\pyls.exe", "--param", "param"],
+
+
+Server-specific options
+-----------------------
 Some servers can be additionally configured, this configuration can be placed
 a) in the server config file settings/lsp_*.json
 b) or in the project config file *.cuda-proj-lsp, near the project file *.cuda-proj
-
 Use command "Plugins / LSP Client / Configure server for current project".
-Examples for the Golang server "gopls":
+
+For example, Golang server "gopls" has docs about its options:
+https://github.com/golang/tools/blob/master/gopls/doc/settings.md
+Options can be written to:
 
 a) settings/lsp_go.json
   ...
@@ -48,24 +61,15 @@ a) settings/lsp_go.json
   ...
 
 b) project config myname.cuda-proj-lsp
-
   {
-    "gopls":{
+    "gopls": {
       "hoverKind": "NoDocumentation"
     }
   }
 
 
-Options
--------
-Plugin supports 3 keys for running commands:
-- "cmd_windows" for Windows,
-- "cmd_macos" for macOS,
-- "cmd_unix" for all other OS.
-
-Each cmd-key must be a list of strings, e.g.
-  "cmd_windows": ["C:\\Python_folder\\pyls.exe", "--param", "param"],
-
+Plugin options
+--------------
 Plugin has the config file, which can be opened in CudaText by:
 "Options / Settings-plugins / LSP Client / Config".
 The possible options are listed in another text file in the LSP Client folder.
