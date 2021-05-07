@@ -2,13 +2,8 @@ Plugin for CudaText.
 Adds support for Language Server Protocol (LSP) servers.
 For each language server needs to be installed separately.
 
-To use a specific server, at least a command to start the server process and a map of lexers
-to supported language identifiers needs to be provided. List of language identifiers
-can be seen here:
-https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
-
 For each LSP server, add config to the folder "settings" (folder of user.json CudaText config).
-Config filename must be named lsp_*.json ("lsp_" prefix and ".json" suffix).
+Config file must be named lsp_*.json ("lsp_" prefix and ".json" suffix).
 
 "Hover dialog" feature: dialog appears when you stop moving the mouse cursor, over some
 identifier, with Ctrl-key pressed (Command-key on macOS).
@@ -22,15 +17,14 @@ It creates the script "~/.local/bin/pyls". Basic config would look like this:
 
   {
     "lexers": {
-        "Python": "python",
-        "RenamedPythonLexer": "python"
+        "Python": "python"
     },
     "cmd_unix": ["~/.local/bin/pyls"]
   }
 
 
-Server options
---------------
+Server common options
+---------------------
 Plugin supports 3 keys for running commands:
 - "cmd_windows" for Windows,
 - "cmd_macos" for macOS,
@@ -38,6 +32,15 @@ Plugin supports 3 keys for running commands:
 
 Each cmd-key must be a list of strings, e.g.
   "cmd_windows": ["C:\\Python_folder\\pyls.exe", "--param", "param"],
+
+The config key "lexers" contains mapping between CudaText lexer names and LSP language names.
+For example, while CudaText lexer name is "C#", LSP language name is "csharp", so you need
+  "lexers": {
+  	 "C#": "csharp"
+  }
+This mapping is needed also when you have some renamed/changed lexer, e.g. "MyPython".
+Some list of LSP language names can be seen here:
+https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
 
 
 Server-specific options
