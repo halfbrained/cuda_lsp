@@ -29,21 +29,26 @@ It creates the script "~/.local/bin/pyls". Basic config would look like this:
   }
 
 
-Server Configuration
+Server configuration
 --------------------
-Some servers can be additionally configured, this configuration can be placed in the server
-config file or or in the project via command - "Configure server for current project"
-Examples of config for the golan server - "gopls":
-* lsp_go.json
+Some servers can be additionally configured, this configuration can be placed
+a) in the server config file settings/lsp_*.json
+b) or in the project config file *.cuda-proj-lsp, near the project file *.cuda-proj
+
+Use command "Plugins / LSP Client / Configure server for current project".
+Examples for the Golang server "gopls":
+
+a) settings/lsp_go.json
   ...
   "settings": {
-  	"gopls": {
-  	  	"hoverKind": "NoDocumentation"
-  	}
+    "gopls": {
+        "hoverKind": "NoDocumentation"
+    }
   }
   ...
 
-* project config:
+b) project config myname.cuda-proj-lsp
+
   {
     "gopls":{
       "hoverKind": "NoDocumentation"
