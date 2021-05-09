@@ -429,7 +429,11 @@ class Command:
             if time.time() - _start > SEVERS_SHUTDOWN_MAX_TIME:
                 break
 
-        os.waitpid(-1, os.WNOHANG) # -1 -- any child
+        try:
+            os.waitpid(-1, os.WNOHANG) # -1 -- any child
+        except ChildProcessError:
+            pass
+
 
 
     def _get_lang(self, ed_self, langid):
