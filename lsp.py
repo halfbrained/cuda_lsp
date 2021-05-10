@@ -6,7 +6,10 @@ _plugin_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(_plugin_dir, 'lsp_modules'))
 
 from cudatext import *
-from cudax_lib import _json_loads #, get_translation
+from cudax_lib import _json_loads
+
+from cudax_lib import get_translation
+_ = get_translation(__file__)  # I18N
 
 from .dlg import Hint
 from .util import (
@@ -26,8 +29,6 @@ from .util import (
 #from .language import Language
 #import cuda_project_man
 #from .book import DocBook
-
-#_   = get_translation(__file__)  # I18N
 
 LOG = False
 LOG_NAME = 'LSP'
@@ -179,11 +180,11 @@ class Command:
 
         # hover dlg calls these with "caret" named param, caret is tuple(caretx, carety)
         self._hint_cmds = {
-            'Definition':   self.call_definition,
-            'References':   self.call_references,
-            'Implementation': self.call_implementation,
-            'Declaration':  self.call_declaration,
-            'Type definition': self.call_typedef,
+            _('Definition'):        self.call_definition,
+            _('References'):        self.call_references,
+            _('Implementation'):    self.call_implementation,
+            _('Declaration'):       self.call_declaration,
+            _('Type definition'):   self.call_typedef,
         }
         ### filter commands by option: opt_hover_additional_commands
         # to lower case for case-insensitive comparison
@@ -230,10 +231,10 @@ class Command:
             file_open(fn_cfg)
             ed.set_prop(PROP_LEXER_FILE, 'JSON')
         else:
-            msg_status('No project opened')
+            msg_status(_('No project opened'))
 
 
-    #NOTE alse gets called for unsaved from session
+    #NOTE also gets called for unsaved from session
     def on_open(self, ed_self):
         if not self.is_loading_sesh:
             self._do_on_open(ed_self)
@@ -553,7 +554,7 @@ class Command:
         langid = lex2langid(lex)
         lang = self._langs.get(langid)
         if lang is None:
-            msg_status(f'No messages for server of current document')
+            msg_status(_('No messages for server of current document'))
             return
 
         names = ['msg|' + str(msg)[:SERVER_RESPONSE_DIALOG_LEN]+'...\t'+type(msg).__name__
@@ -574,7 +575,7 @@ class Command:
 
     def dbg_show_docs(self):
         items = [f'{doc.lang}: {doc}' for doc in self.book.get_docs()]
-        dlg_menu(DMENU_LIST, items, caption='LSP Docs')
+        dlg_menu(DMENU_LIST, items, caption=_('LSP Docs'))
 
     @command
     # for project folder change
@@ -583,7 +584,7 @@ class Command:
         if name == None:
             names = list(self._langs)
             names.sort()
-            ind = dlg_menu(DMENU_LIST, names, caption='Shutdown server')
+            ind = dlg_menu(DMENU_LIST, names, caption=_('Shutdown server'))
             if ind is not None:
                 name = names[ind]
 
@@ -749,8 +750,8 @@ class Command:
 # if python too old - give msgbox and disable plugin
 ver = sys.version_info
 if (ver.major, ver.minor) < (3, 6):
-    msg = f'{LOG_NAME}: current Python version is not supported.' \
-        +' Please upgrade to Python 3.6 or newer.'
+    msg = _('{}: current Python version is not supported. '
+            'Please upgrade to Python 3.6 or newer.').format(LOG_NAME)
     callback = lambda *args, msg=msg, **vargs: msg_box(msg, MB_OK or MB_ICONWARNING)
     timer_proc(TIMER_START_ONE, callback, 1000)
 

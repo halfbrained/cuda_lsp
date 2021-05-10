@@ -14,7 +14,9 @@ from wcmatch.glob import globmatch, GLOBSTAR, BRACE
 
 from cudatext import *
 import cudax_lib as appx
-#from cudax_lib import get_translation
+
+from cudax_lib import get_translation
+_ = get_translation(__file__)  # I18N
 
 from .util import (
         get_first,
@@ -48,8 +50,6 @@ from .sansio_lsp_client.structs import (
         WorkspaceFolder,
     )
 
-#_   = get_translation(__file__)  # I18N
-
 import traceback
 import datetime
 
@@ -81,6 +81,13 @@ CALLABLE_COMPLETIONS = {
 
 RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
+GOTO_TITLES = {
+    events.Definition:      _('Go to: definition'),
+    events.References:      _('Go to: references'),
+    events.Implementation:  _('Go to: implementation'),
+    events.TypeDefinition:  _('Go to: type definition'),
+    events.Declaration:     _('Go to: declaration'),
+}
 
 class Language:
     def __init__(self, cfg, cmds=None, lintstr='', underline_style=None):
@@ -169,18 +176,21 @@ class Language:
     def _start_server(self):
         # if config has tcp port - connetct to it
         if self._tcp_port and type(self._tcp_port) == int:
-            print(f'{LOG_NAME}: {self.lang_str} - connecting via TCP, port: {self._tcp_port}')
+            print(_('{}: {} - connecting via TCP, port: {}').format(
+                  LOG_NAME, self.lang_str, self._tcp_port))
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                print(f'NOTE: {LOG_NAME}: {self.lang_str} - Failed to connect on port {self.tcp_port}')
+                print(_('NOTE: {}: {} - Failed to connect on port {}').format(
+                      LOG_NAME, self.lang_str, self._tcp_port))
                 return
 
             self._reader = self.sock.makefile('rwb')  # type: ignore
             self._writer = self._reader
         # not port - create stdio-process
         else:
-            print(f'{LOG_NAME}: starting server - {self.lang_str}; root: {collapse_path(self._work_dir)}')
+            print(_('{}: starting server - {}; root: {}').format(
+                  LOG_NAME, self.lang_str, self._work_dir))
 
             env = ServerConfig.prepare_env(self._env_paths)
 
@@ -343,7 +353,8 @@ class Language:
         #GOTOs
         elif msgtype in GOTO_EVENT_TYPES:
             skip_dlg = msgtype == events.Definition
-            self.do_goto(items=msg.result, dlg_caption=f'Go to {msgtype.__name__}', skip_dlg=skip_dlg)
+            dlg_caption = GOTO_TITLES.get(msgtype, f'Go to {msgtype.__name__}')
+            self.do_goto(items=msg.result, dlg_caption=dlg_caption, skip_dlg=skip_dlg)
 
         elif msgtype == events.MDocumentSymbols:
             self.show_symbols(msg.result)
@@ -611,7 +622,7 @@ class Language:
 
         dlg_items = [f'{name}\t{kind.name.title()} {" in "+parent if parent else ""}'
                         for name,parent,kind,loc in targets]
-        dlg_menu(DMENU_LIST_ALT, dlg_items, caption='Go to symbol')
+        dlg_menu(DMENU_LIST_ALT, dlg_items, caption=_('Go to: symbol'))
 
 
     def request_sighelp(self, eddoc):
