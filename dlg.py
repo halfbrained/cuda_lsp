@@ -15,6 +15,8 @@ BUTTON_H = 20
 ED_MAX_LINES = 10
 FORM_GAP = 4
 
+CURSOR_MOVE_TOLERANCE = 30
+
 def is_mouse_in_form(h_dlg):
     prop = dlg_proc(h_dlg, ct.DLG_PROP_GET)
     if not prop['vis']: return False
@@ -83,7 +85,6 @@ class Hint:
                 #'w_max': 128,
                 })
         cls._h_sb = dlg_proc(h, ct.DLG_CTL_HANDLE, index=cls._n_sb)
-        ct.button_proc(cls._h_sb, ct.BTN_SET_TEXT, 'Go to Definition')
 
         n = dlg_proc(h, ct.DLG_CTL_ADD, 'editor')
         dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
@@ -120,7 +121,7 @@ class Hint:
         cls.current_caret = caret # for 'Go to Definition'
         cls.cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
         _scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
-        cls.cursor_margin = 15 * _scale_UI_percent*0.01 # 15px scaled
+        cls.cursor_margin = CURSOR_MOVE_TOLERANCE * _scale_UI_percent*0.01 # ~30px scaled
 
         ### dont show dialog if cursor moved from request-position
         _glob_cursor_start = ed.convert(ct.CONVERT_LOCAL_TO_SCREEN, *cursor_loc_start)
@@ -159,7 +160,7 @@ class Hint:
             x = r - w - FORM_GAP
 
         if top_hint:
-            y = (caret_loc_px[1] - (h + cell_h + FORM_GAP))
+            y = (caret_loc_px[1] - (h + FORM_GAP))
         else:
             y = (caret_loc_px[1] + cell_h + FORM_GAP)
 
