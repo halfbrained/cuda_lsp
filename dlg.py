@@ -1,13 +1,9 @@
 
-#from cudatext import *
-import cudatext as ct
+from cudatext import *
+#import cudatext as ct
 
 # imported on ~access
 #from .sansio_lsp_client.structs import MarkupKind
-
-ed = ct.ed
-dlg_proc = ct.dlg_proc
-statusbar_proc = ct.statusbar_proc
 
 FORM_W = 550
 FORM_H = 350
@@ -18,18 +14,18 @@ FORM_GAP = 4
 CURSOR_MOVE_TOLERANCE = 30
 
 def is_mouse_in_form(h_dlg):
-    prop = dlg_proc(h_dlg, ct.DLG_PROP_GET)
+    prop = dlg_proc(h_dlg, DLG_PROP_GET)
     if not prop['vis']: return False
     w = prop['w']
     h = prop['h']
 
-    x, y = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
-    x, y = dlg_proc(h_dlg, ct.DLG_COORD_SCREEN_TO_LOCAL, index=x, index2=y)
+    x, y = app_proc(PROC_GET_MOUSE_POS, '')
+    x, y = dlg_proc(h_dlg, DLG_COORD_SCREEN_TO_LOCAL, index=x, index2=y)
 
     return (0<=x<w and 0<=y<h)
 
 def cursor_dist(pos):
-    cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
+    cursor_pos = app_proc(PROC_GET_MOUSE_POS, '')
     dist_sqr = (pos[0]-cursor_pos[0])**2 + (pos[1]-cursor_pos[1])**2
     return dist_sqr**0.5
 
@@ -54,19 +50,19 @@ class Hint:
 
         from .sansio_lsp_client.structs import MarkupKind
 
-        _cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
+        _cell_w, cell_h = ed.get_prop(PROP_CELL_SIZE)
         FORM_H = FORM_GAP*2 + ED_MAX_LINES*cell_h + BUTTON_H
 
-        h = dlg_proc(0, ct.DLG_CREATE)
+        h = dlg_proc(0, DLG_CREATE)
 
-        colors = ct.app_proc(ct.PROC_THEME_UI_DICT_GET, '')
+        colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         color_form_bg = colors['TabBorderActive']['color']
         cls.color_btn_font = colors['ButtonFont']['color']
         cls.color_btn_back = colors['ButtonBgPassive']['color']
         cls.color_btn_font_disabled = colors['ButtonFontDisabled']['color']
         cls.color_btn_back_disabled = colors['ButtonBgDisabled']['color']
 
-        dlg_proc(h, ct.DLG_PROP_SET, prop={
+        dlg_proc(h, DLG_PROP_SET, prop={
                 'w': FORM_W + 2*FORM_GAP,
                 'border': False,
                 'color': color_form_bg,
@@ -74,9 +70,9 @@ class Hint:
                 #'on_mouse_exit': cls.dlgcolor_mouse_exit,
                 })
 
-        cls._n_sb = dlg_proc(h, ct.DLG_CTL_ADD, 'statusbar')
-        dlg_proc(h, ct.DLG_CTL_PROP_SET, index=cls._n_sb, prop={
-                'align': ct.ALIGN_BOTTOM,
+        cls._n_sb = dlg_proc(h, DLG_CTL_ADD, 'statusbar')
+        dlg_proc(h, DLG_CTL_PROP_SET, index=cls._n_sb, prop={
+                'align': ALIGN_BOTTOM,
                 'sp_l': 1,
                 'sp_r': 1,
                 'sp_b': 1,
@@ -84,26 +80,26 @@ class Hint:
                 #'w': 128,
                 #'w_max': 128,
                 })
-        cls._h_sb = dlg_proc(h, ct.DLG_CTL_HANDLE, index=cls._n_sb)
+        cls._h_sb = dlg_proc(h, DLG_CTL_HANDLE, index=cls._n_sb)
 
-        n = dlg_proc(h, ct.DLG_CTL_ADD, 'editor')
-        dlg_proc(h, ct.DLG_CTL_PROP_SET, index=n, prop={
-                'align': ct.ALIGN_CLIENT,
+        n = dlg_proc(h, DLG_CTL_ADD, 'editor')
+        dlg_proc(h, DLG_CTL_PROP_SET, index=n, prop={
+                'align': ALIGN_CLIENT,
                 'sp_a': FORM_GAP,
                 'h': FORM_H,
                 })
-        h_ed = dlg_proc(h, ct.DLG_CTL_HANDLE, index=n)
+        h_ed = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         # Editor.set_text_all() doesn't clutter edit history, so no unnecessary stuff is stored in RAM
-        edt = ct.Editor(h_ed)
+        edt = Editor(h_ed)
 
-        edt.set_prop(ct.PROP_GUTTER_ALL, False)
-        edt.set_prop(ct.PROP_MINIMAP, False)
-        edt.set_prop(ct.PROP_MICROMAP, False)
-        edt.set_prop(ct.PROP_LAST_LINE_ON_TOP, False)
+        edt.set_prop(PROP_GUTTER_ALL, False)
+        edt.set_prop(PROP_MINIMAP, False)
+        edt.set_prop(PROP_MICROMAP, False)
+        edt.set_prop(PROP_LAST_LINE_ON_TOP, False)
 
-        cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
+        cls.theme_name = app_proc(PROC_THEME_UI_GET, '')
 
-        dlg_proc(h, ct.DLG_SCALE)
+        dlg_proc(h, DLG_SCALE)
         return h, edt
 
     # language - from deprecated 'MarkedString'
@@ -114,40 +110,40 @@ class Hint:
 
         if cls.h is None  or  cls.is_theme_changed():
             if cls.h is not None: # theme changed
-                ct.dlg_proc(cls.h, ct.DLG_FREE)
+                dlg_proc(cls.h, DLG_FREE)
 
             cls.h, cls.ed = cls.init_form()
 
         cls.current_caret = caret # for 'Go to Definition'
-        cls.cursor_pos = ct.app_proc(ct.PROC_GET_MOUSE_POS, '')
-        _scale_UI_percent, _scale_font_percent = ct.app_proc(ct.PROC_CONFIG_SCALE_GET, '')
+        cls.cursor_pos = app_proc(PROC_GET_MOUSE_POS, '')
+        _scale_UI_percent, _scale_font_percent = app_proc(PROC_CONFIG_SCALE_GET, '')
         cls.cursor_margin = CURSOR_MOVE_TOLERANCE * _scale_UI_percent*0.01 # ~30px scaled
 
         ### dont show dialog if cursor moved from request-position
-        _glob_cursor_start = ed.convert(ct.CONVERT_LOCAL_TO_SCREEN, *cursor_loc_start)
+        _glob_cursor_start = ed.convert(CONVERT_LOCAL_TO_SCREEN, *cursor_loc_start)
         if cursor_dist(_glob_cursor_start) > cls.cursor_margin:
             return
 
         ### dialog Editor setup
-        cls.ed.set_prop(ct.PROP_RO, False)
+        cls.ed.set_prop(PROP_RO, False)
         try:
             cls.ed.set_text_all(text)
-            cls.ed.set_prop(ct.PROP_LINE_TOP, 0)
-            cls.ed.set_prop(ct.PROP_SCROLL_HORZ, 0)
+            cls.ed.set_prop(PROP_LINE_TOP, 0)
+            cls.ed.set_prop(PROP_SCROLL_HORZ, 0)
 
             if markupkind == MarkupKind.MARKDOWN:
-                cls.ed.set_prop(ct.PROP_LEXER_FILE, 'Markdown')
+                cls.ed.set_prop(PROP_LEXER_FILE, 'Markdown')
             else:
-                cls.ed.set_prop(ct.PROP_LEXER_FILE, None)
+                cls.ed.set_prop(PROP_LEXER_FILE, None)
         finally:
-            cls.ed.set_prop(ct.PROP_RO, True)
+            cls.ed.set_prop(PROP_RO, True)
 
         ### calculate dialog position and dimensions: x,y, h,w
-        l,t,r,b = ed.get_prop(ct.PROP_RECT_TEXT)
-        cell_w, cell_h = ed.get_prop(ct.PROP_CELL_SIZE)
+        l,t,r,b = ed.get_prop(PROP_RECT_TEXT)
+        cell_w, cell_h = ed.get_prop(PROP_CELL_SIZE)
         ed_size_x = r - l # text area sizes - to not obscure other ed-controls
 
-        caret_loc_px = ed.convert(ct.CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
+        caret_loc_px = ed.convert(CONVERT_CARET_TO_PIXELS, x=caret[0], y=caret[1])
         top_hint = caret_loc_px[1]-t > b-caret_loc_px[1] # space up is larger than down
         y0,y1 = (t, caret_loc_px[1])  if top_hint else  (caret_loc_px[1], b)
         h = min(FORM_H,  y1-y0 - FORM_GAP*2 - cell_h)
@@ -165,8 +161,8 @@ class Hint:
             y = (caret_loc_px[1] + cell_h + FORM_GAP)
 
 
-        dlg_proc(cls.h, ct.DLG_PROP_SET, prop={
-                'p': ed.get_prop(ct.PROP_HANDLE_SELF ), #set parent to Editor handle
+        dlg_proc(cls.h, DLG_PROP_SET, prop={
+                'p': ed.get_prop(PROP_HANDLE_SELF ), #set parent to Editor handle
                 'x': x,
                 'y': y,
                 'w': w,
@@ -178,30 +174,30 @@ class Hint:
             cls.fill_cmds(caret_cmds, w)
 
         # first - large delay, after - smaller
-        ct.timer_proc(ct.TIMER_START_ONE, Hint.hide_check_timer, 750, tag='initial')
-        dlg_proc(cls.h, ct.DLG_SHOW_NONMODAL)
+        timer_proc(TIMER_START_ONE, Hint.hide_check_timer, 750, tag='initial')
+        dlg_proc(cls.h, DLG_SHOW_NONMODAL)
 
     @classmethod
     def fill_cmds(cls, cmds, width):
-        statusbar_proc(cls._h_sb, ct.STATUSBAR_DELETE_ALL)
+        statusbar_proc(cls._h_sb, STATUSBAR_DELETE_ALL)
 
         cellwidth = int(width/len(cmds)) + 1
         callback_fstr = 'module=cuda_lsp.dlg;func=hint_callback;info="{}";'
         for caption,cmd in cmds.items():
-            cellind = statusbar_proc(cls._h_sb, ct.STATUSBAR_ADD_CELL, index=-1)
-            statusbar_proc(cls._h_sb, ct.STATUSBAR_SET_CELL_TEXT, index=cellind, value=caption)
-            statusbar_proc(cls._h_sb, ct.STATUSBAR_SET_CELL_SIZE, index=cellind, value=cellwidth)
+            cellind = statusbar_proc(cls._h_sb, STATUSBAR_ADD_CELL, index=-1)
+            statusbar_proc(cls._h_sb, STATUSBAR_SET_CELL_TEXT, index=cellind, value=caption)
+            statusbar_proc(cls._h_sb, STATUSBAR_SET_CELL_SIZE, index=cellind, value=cellwidth)
 
             if cmd:
                 bg,fg = cls.color_btn_back,  cls.color_btn_font
 
                 callback = callback_fstr.format(caption)
-                statusbar_proc(cls._h_sb, ct.STATUSBAR_SET_CELL_CALLBACK, index=cellind, value=callback)
+                statusbar_proc(cls._h_sb, STATUSBAR_SET_CELL_CALLBACK, index=cellind, value=callback)
             else:
                 bg,fg = cls.color_btn_back_disabled,  cls.color_btn_font_disabled
 
-            statusbar_proc(cls._h_sb, ct. STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg)
-            statusbar_proc(cls._h_sb, ct. STATUSBAR_SET_CELL_COLOR_FONT, index=cellind, value=fg)
+            statusbar_proc(cls._h_sb,  STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg)
+            statusbar_proc(cls._h_sb,  STATUSBAR_SET_CELL_COLOR_FONT, index=cellind, value=fg)
 
 
     @classmethod
@@ -222,33 +218,33 @@ class Hint:
     def hide_check_timer(cls, tag='', info=''):
         # hide if not over dialog  and  cursor moved at least ~15px
         if not is_mouse_in_form(cls.h)  and  cursor_dist(cls.cursor_pos) > cls.cursor_margin:
-            ct.timer_proc(ct.TIMER_STOP, Hint.hide_check_timer, 250, tag='')
+            timer_proc(TIMER_STOP, Hint.hide_check_timer, 250, tag='')
 
             cls.hide()
             ed.focus()
 
         if tag == 'initial': # give some time to move mouse to dialog
-            ct.timer_proc(ct.TIMER_START, Hint.hide_check_timer, 250, tag='')
+            timer_proc(TIMER_START, Hint.hide_check_timer, 250, tag='')
 
     @classmethod
     def hide(cls):
         # clear editor data and hide dialog
-        cls.ed.set_prop(ct.PROP_RO, False)
+        cls.ed.set_prop(PROP_RO, False)
         cls.ed.set_text_all('')
         cls.current_caret = None
-        dlg_proc(cls.h, ct.DLG_HIDE)
+        dlg_proc(cls.h, DLG_HIDE)
 
     @classmethod
     def is_theme_changed(cls):
         old_name = cls.theme_name
-        cls.theme_name = ct.app_proc(ct.PROC_THEME_UI_GET, '')
+        cls.theme_name = app_proc(PROC_THEME_UI_GET, '')
         return old_name != cls.theme_name
 
     @classmethod
     def is_visible(cls):
         if cls.h is None:
             return False
-        return dlg_proc(cls.h, ct.DLG_PROP_GET)['vis']
+        return dlg_proc(cls.h, DLG_PROP_GET)['vis']
 
     @classmethod
     def is_under_cursor(cls):
