@@ -31,7 +31,14 @@ from .util import (
         ValidationError,
     )
 from .dlg import Hint
+#from .dlg import PanelLog
 from .book import EditorDoc
+
+ver = sys.version_info
+if (ver.major, ver.minor) < (3, 7):
+    modules36_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lsp_modules36')
+    sys.path.append(modules36_dir)
+
 
 from .sansio_lsp_client import client as lsp
 from .sansio_lsp_client import events
@@ -119,6 +126,7 @@ class Language:
 
 
         self._client = None
+        #self.plog = PanelLog(self.name)
 
         self.request_positions = {} # RequestPos
         self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
@@ -387,9 +395,11 @@ class Language:
             app_log(LOG_ADD, 'LSP_MSG:{}: {}'.format(msg.type.name, lines[0]), panel=LOG_PANEL_OUTPUT)
             for line in lines[1:]:
                 app_log(LOG_ADD, line, panel=LOG_PANEL_OUTPUT)
+            #self.plog.log(msg)
 
         elif msgtype == events.ShowMessage:
             print(f'{LOG_NAME}: {self.lang_str}: [{msg.type.name.title()}] {msg.message}')
+            #self.plog.log(msg)
 
         elif isinstance(msg, events.WorkDoneProgressCreate)  or  issubclass(msgtype, events.Progress):
             self._on_progress(msg)
