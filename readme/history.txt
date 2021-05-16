@@ -1,3 +1,6 @@
+2021.05.16
+- fix: module 'dataclasses' was missed under Python <3.7
+
 2021.04.26
 + add: plugin allows to configure server per-project, using *.cuda-proj-lsp files located 
 	near *.cuda-proj file (for example Golang server supports this)
