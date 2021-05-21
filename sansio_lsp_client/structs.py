@@ -23,16 +23,11 @@ class Request(BaseModel):
 
 class Response(BaseModel):
     id: t.Optional[Id]
-    result: t.Optional[JSONDict]
-    #result: t.Optional[t.Union[ # MY
-        #JSONDict,
-        #t.List[t.Any],]]
+    result: t.Optional[t.Union[ # MY
+        t.List[t.Any],
+        JSONDict,
+        ]]
     error: t.Optional[JSONDict]
-
-# MY
-# type checked in Client._handle_response()
-class ResponseList(Response):
-    result: t.Optional[t.List[t.Any]]
 
 
 class MessageType(enum.IntEnum):
@@ -388,10 +383,13 @@ class DocumentSymbol(BaseModel): # symbols: hierarchy
     range: Range
     selectionRange: Range
     # https://stackoverflow.com/questions/36193540
-    children: t.Optional['DocumentSymbol']
+    children: t.Optional[t.List['DocumentSymbol']]
 
     def mpos(self):
         return self.selectionRange.start.character, self.selectionRange.start.line
+
+DocumentSymbol.update_forward_refs()
+
 
 class Registration(BaseModel):
     id: str

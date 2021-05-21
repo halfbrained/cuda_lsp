@@ -58,7 +58,6 @@ from .structs import (
     Location,
     LocationLink,
     # NEW
-    ResponseList,
     SymbolInformation,
     FormattingOptions,
     Range,
@@ -311,39 +310,33 @@ class Client:
             event.message_id = response.id
 
         elif request.method == "textDocument/documentSymbol":
-            result_type = t.get_type_hints(MDocumentSymbols)['result']
-            event = MDocumentSymbols(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(MDocumentSymbols, response)
+            event.message_id = response.id
 
         #GOTOs
         elif request.method == "textDocument/definition":
-            result_type = t.get_type_hints(Definition)['result']
-            event = Definition(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(Definition, response)
+
         elif request.method == "textDocument/references":
             event = References(result=parse_obj_as(t.List[Location], response.result))
         elif request.method == "textDocument/implementation":
-            result_type = t.get_type_hints(Implementation)['result']
-            event = Implementation(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(Implementation, response)
         elif request.method == "textDocument/declaration":
-            result_type = t.get_type_hints(Declaration)['result']
-            event = Declaration(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(Declaration, response)
         elif request.method == "textDocument/typeDefinition":
-            result_type = t.get_type_hints(TypeDefinition)['result']
-            event = TypeDefinition(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(TypeDefinition, response)
 
         elif request.method == "textDocument/prepareCallHierarchy":
-            result_type = t.get_type_hints(MCallHierarchItems)['result']
-            event = MCallHierarchItems(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(MCallHierarchItems, response)
 
         elif (request.method == "textDocument/formatting"
                 or request.method == "textDocument/rangeFormatting"):
-            result_type = t.get_type_hints(DocumentFormatting)['result']
-            event = DocumentFormatting(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(DocumentFormatting, response)
             event.message_id = response.id
 
         # WORKSPACE
         elif request.method == "workspace/symbol":
-            result_type = t.get_type_hints(MWorkspaceSymbols)['result']
-            event = MWorkspaceSymbols(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(MWorkspaceSymbols, response)
 
         else:
             raise NotImplementedError((response, request))
@@ -416,7 +409,7 @@ class Client:
         events: t.List[Event] = []
         for message in messages:
             try:
-                if isinstance(message, Response) or isinstance(message, ResponseList):
+                if isinstance(message, Response):
                     events.append(self._handle_response(message))
                 elif isinstance(message, Request):
                     events.append(self._handle_request(message))

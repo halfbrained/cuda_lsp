@@ -15,7 +15,7 @@ section=events
 events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
 [item4]
 section=events
-events=on_goto_def,on_click_link
+events=on_goto_def,on_focus
 
 [item5]
 section=events
@@ -74,40 +74,40 @@ caption=LSP Client\Configure server for current project
 method=config_server
 
 
-;[item31]
+;[item50]
 ;section=commands
 ;caption=LSP Client\Workspace symbols (broken)
 ;method=dbg_workspace_symbols
-
-;[item32]
+;
+;[item51]
 ;section=commands
 ;caption=LSP Client\Call hierarchy (broken)
 ;method=dbg_call_hierarchy_in
 
 
-[item40]
+[item70]
 section=commands
 caption=LSP Client\-
 method=_
 
-[item41]
+[item71]
 section=commands
 caption=LSP Client\Shutdown server...
 method=shutdown_server
 
-[item42]
+[item72]
 section=commands
 caption=LSP Client\Debug: Docs list...
 method=dbg_show_docs
 
-[item43]
+[item73]
 section=commands
 caption=LSP Client\Debug: view server responses (current server)
 method=dbg_show_msg
 
 
 
-[item60]
+[item100]
 section=commands
 caption=LSP Client\Config
 method=config

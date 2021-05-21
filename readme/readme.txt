@@ -42,6 +42,13 @@ This mapping is needed also when you have some renamed/changed lexer, e.g. "MyPy
 Some list of LSP language names can be seen here:
 https://microsoft.github.io/language-server-protocol/specifications/specification-current/#-textdocumentitem-
 
+Option to fill "Code tree" from the LSP server:
+  "enable_code_tree": true
+
+Which document symbols to show in the tree can also be configured with a comma-separated list of symbol kinds:
+  "tree_types_show": "file,module,namespace,package,class,method,property,field,constructor,enum,interface,function,variable,constant,string,number,boolean,array,object,key,null,enummember,struct,event,operator,typeparameter" 
+Default value is: "namespace,class,method,constructor,interface,function,struct"
+
 
 Server-specific options
 -----------------------

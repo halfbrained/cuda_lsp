@@ -187,6 +187,7 @@ class MWorkspaceSymbols(Event):
     result: t.Union[t.List[SymbolInformation], None]
 
 class MDocumentSymbols(Event):
+    message_id: t.Optional[Id] # custom...
     result: t.Union[t.List[SymbolInformation], t.List[DocumentSymbol], None]
 
 class Declaration(Event):

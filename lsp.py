@@ -279,6 +279,14 @@ class Command:
             if lang.on_open(doc): # doc's .lang is set only when was actually didOpen-ed
                 doc.update(lang=lang)
 
+                if lang.tree_enabled:
+                    lang.update_tree(doc)
+
+    def on_focus(self, ed_self):
+        doc = self.book.get_doc(ed_self)
+        if doc and doc.lang and doc.lang.tree_enabled:
+            doc.lang.update_tree(doc)
+
     def on_save(self, ed_self):
         """ handles changed uri for LSP doc
             * if was unsaved with LSP lexer: will have a LSP 'doc' -- ok
@@ -322,12 +330,14 @@ class Command:
             self.on_open(ed_self)
 
     def on_change_slow(self, ed_self):
-        if opt_send_change_on_request:
-            return
-
         doc = self.book.get_doc(ed_self)
         if doc and doc.lang:
-            doc.lang.send_changes(doc)
+            # tree update sends changes by itself
+            if doc.lang.tree_enabled and doc.lang.update_tree(doc):
+                return
+            if not opt_send_change_on_request:
+                doc.lang.send_changes(doc)
+
 
     @command
     def on_complete(self, ed_self):
@@ -538,11 +548,6 @@ class Command:
             doc.lang.call_hierarchy_in(doc)
 
 
-    def dbg_doc_symbols(self):
-        doc = self.book.get_doc(ed)
-        if doc and doc.lang:
-            doc.lang.doc_symbol(doc)
-
     def dbg_workspace_symbols(self):
         doc = self.book.get_doc(ed)
         if doc and doc.lang:
@@ -745,6 +750,15 @@ class Command:
     def _killcpp(self):
         lcpp = self._langs.pop('cpp')
         lcpp.shutdown()
+
+    def _kill_servers(self):
+        """ only use before exiting
+        """
+        for lang in self._langs.values():
+            try:
+                lang.process.kill()
+            except:
+                pass
 
 
 # if python too old - give msgbox and disable plugin

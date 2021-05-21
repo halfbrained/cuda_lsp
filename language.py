@@ -33,6 +33,7 @@ from .util import (
 from .dlg import Hint
 #from .dlg import PanelLog
 from .book import EditorDoc
+#from .tree import TreeMan  # imported on access
 
 ver = sys.version_info
 if (ver.major, ver.minor) < (3, 7):
@@ -127,6 +128,7 @@ class Language:
 
         self._client = None
         #self.plog = PanelLog(self.name)
+        self._treeman = None
 
         self.request_positions = {} # RequestPos
         self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
@@ -169,6 +171,19 @@ class Language:
             return [ WorkspaceFolder(uri=root_uri, name='Root'), ]
         else:
             return None
+
+    @property
+    def tree_enabled(self):
+        return self._cfg.get('enable_code_tree')
+
+    @property
+    def treeman(self):
+        if not self._treeman  and  self.tree_enabled:
+            from .tree import TreeMan
+
+            self._treeman = TreeMan(self._cfg)
+
+        return self._treeman
 
     def is_client_exited(self):
         return self._client.state == lsp.ClientState.EXITED
@@ -226,9 +241,8 @@ class Language:
         self.reader_thread.start()
         self.writer_thread.start()
 
-        if print_server_errors:
-            self.err_thread = Thread(target=self._err_read_loop, name=self.name+'-err', daemon=True)
-            self.err_thread.start()
+        self.err_thread = Thread(target=self._err_read_loop, name=self.name+'-err', daemon=True)
+        self.err_thread.start()
 
         timer_proc(TIMER_START, self.process_queues, 100, tag='')
 
@@ -238,7 +252,8 @@ class Language:
                 line = self._err.readline()
                 if line == b'':
                     break
-                print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
+                if print_server_errors:
+                    print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
         except Exception as ex:
             print(f'ErrReadException: {LOG_NAME}: {self.lang_str} - {ex}')
         pass;       LOG and print(f'NOTE: err reader exited')
@@ -365,7 +380,9 @@ class Language:
             self.do_goto(items=msg.result, dlg_caption=dlg_caption, skip_dlg=skip_dlg)
 
         elif msgtype == events.MDocumentSymbols:
-            self.show_symbols(msg.result)
+            _reqpos = self.request_positions.pop(msg.message_id)
+            if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed  and  self.treeman:
+                self.treeman.fill_tree(msg.result)
 
         elif msgtype == events.DocumentFormatting:
             if msg.message_id in self.request_positions:
@@ -467,6 +484,7 @@ class Language:
 
         _verdoc = eddoc.get_verdoc()
         self.client.did_change(text_document=_verdoc, content_changes=_changes)
+
 
     def on_ed_shown(self, eddoc):
         self.diagnostics_man.on_doc_shown(eddoc)
@@ -575,7 +593,7 @@ class Language:
             if isinstance(link, Location):
                 return (link.uri, link.range)
             elif isinstance(link, LocationLink):
-                return (link.targeturi, targetSelectionRange)
+                return (link.targetUri, link.targetSelectionRange)
             else:
                 raise Exception('Invalid goto-link type: '+str(type(link)))
 
@@ -607,33 +625,6 @@ class Language:
         app_idle(True) # fixes editor not scrolled to caret
         ed.set_caret(targetrange.start.character, targetrange.start.line) # goto specified position start
         ed.set_prop(PROP_LINE_TOP, max(0, targetrange.start.line-3))
-
-
-    def show_symbols(self, items):
-        # DocumentSymbol - hierarchy
-        def flatten(l, parent, items): #SKIP
-            if items is None  or  len(items) == 0:      return
-
-            l.extend(( (item.name, parent or '', item.kind, item.selectionRange)  for item in items ))
-            # recurse children
-            map(flatten, ((l, item.name, item.children) for item in items  if item.children))
-
-        if items is None  or  len(items) == 0:
-            pass;       LOG and print(f'no symbols')
-            return
-
-        if type(items[0]) == DocumentSymbol: # hierarchy - flatten
-            targets = []
-            flatten(targets, '', items)
-        else: # SymbolInformation -> (name,parent,kind,loc)
-            targets = [(item.name, item.containerName or '', item.kind, item.location)  for item in items]
-
-        targets.sort(key=lambda t: (t[0].lower(), t[1].lower(), t[2])) # loc -- Location or Range
-
-        dlg_items = [f'{name}\t{kind.name.title()} {" in "+parent if parent else ""}'
-                        for name,parent,kind,loc in targets]
-        dlg_menu(DMENU_LIST_ALT, dlg_items, caption=_('Go to: symbol'))
-
 
     def request_sighelp(self, eddoc):
         id, pos = self._action_by_name(METHOD_SIG_HELP, eddoc)
@@ -692,15 +683,20 @@ class Language:
                     self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
 
 
-    def doc_symbol(self, eddoc):
+    def update_tree(self, eddoc):
+        """ returns True if feature supported
+        """
         if self.client.is_initialized:
             opts = self.scfg.method_opts(METHOD_DOC_SYMBOLS, eddoc)
             if opts is not None  and  eddoc.lang is not None: # lang check -- is opened
                 self.send_changes(eddoc) # for later: server can give edits on save
 
                 docid = eddoc.get_docid()
-                self.client.doc_symbol(docid)
+                id = self.client.doc_symbol(docid)
 
+                self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
+                self.process_queues()
+                return True
 
     def call_hierarchy_in(self, eddoc):
         self.send_changes(eddoc)
@@ -766,12 +762,15 @@ class Language:
                 msg_status(f'{LOG_NAME}: {self.lang_str} - {title + msg_str}')
 
     def _save_req_pos(self, id, target_pos_caret=None):
+        """ save request's caret position, and active editor -- to check if proper editor
+        """
         h = ed.get_prop(PROP_HANDLE_SELF)
         carets = ed.get_carets()
         _cursor = app_proc(PROC_GET_MOUSE_POS, '') # screen coords
         cursor_ed = ed.convert(CONVERT_SCREEN_TO_LOCAL, *_cursor)
         _req = RequestPos(h,  carets=carets,  target_pos_caret=target_pos_caret,  cursor_ed=cursor_ed)
         self.request_positions[id] = _req
+
 
     def _validate_config(self):
         """ aborts server start if invalid config
@@ -946,7 +945,6 @@ class DiagnosticsMan:
                             color_border=err_col,  border_down=self._underline_style)
 
 
-
     def _get_gutter_data(self, diag_list):
         line_diags = defaultdict(list) # line -> list of diagnostics
         for d in diag_list:
@@ -1047,7 +1045,6 @@ METHOD_PROVIDERS = {
 
     #METHOD_WS_SYMBOLS       : '',
 }
-
 
 class ServerConfig:
     def __init__(self, initialized, langids, lang_str):
