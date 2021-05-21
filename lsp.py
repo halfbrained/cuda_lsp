@@ -57,6 +57,8 @@ opt_hover_additional_commands = [
 opt_cudatext_in_py_env = False
 opt_lint_type = 'b'
 opt_lint_underline_style = 2  # solid 0, dotted 1, dashes 2, wave 3
+opt_enable_code_tree = False
+opt_tree_types_show = ''
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
@@ -635,6 +637,8 @@ class Command:
         global opt_cudatext_in_py_env
         global opt_lint_type
         global opt_lint_underline_style
+        global opt_enable_code_tree
+        global opt_tree_types_show
 
         # general cfg
         if os.path.exists(fn_config):
@@ -657,6 +661,9 @@ class Command:
             opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
             opt_cudatext_in_py_env = j.get('cudatext_in_py_env', opt_cudatext_in_py_env)
             opt_lint_type = j.get('lint_type', opt_lint_type)
+
+            opt_enable_code_tree = j.get('enable_code_tree', opt_enable_code_tree)
+            opt_tree_types_show = j.get('tree_types_show', opt_tree_types_show)
 
             _opt_lint_underline_style = j.get('lint_underline_style', opt_lint_underline_style)
             if _opt_lint_underline_style in LINT_STYLE_MAP:
@@ -703,6 +710,10 @@ class Command:
                     continue
                 if 'name' not in j:
                     j['name'] = os.path.splitext(name)[0]
+                # tree options
+                j.setdefault('enable_code_tree', opt_enable_code_tree)
+                j.setdefault('tree_types_show', opt_tree_types_show)
+
                 servers_cfgs.append(j)
 
             update_lexmap(user_lexids) # add user mapping to global map
@@ -716,14 +727,16 @@ class Command:
         import json
 
         j = {
-            'root_dir_source': opt_root_dir_source,
-            'send_change_on_request': opt_send_change_on_request,
-            'enable_mouse_hover': opt_enable_mouse_hover,
-            'hover_dlg_max_lines': opt_hover_max_lines,
+            'root_dir_source':           opt_root_dir_source,
+            'send_change_on_request':    opt_send_change_on_request,
+            'enable_mouse_hover':        opt_enable_mouse_hover,
+            'hover_dlg_max_lines':       opt_hover_max_lines,
             'hover_additional_commands': opt_hover_additional_commands,
-            'cudatext_in_py_env': opt_cudatext_in_py_env,
-            'lint_type': opt_lint_type,
-            'lint_underline_style': opt_lint_underline_style,
+            'cudatext_in_py_env':        opt_cudatext_in_py_env,
+            'lint_type':                 opt_lint_type,
+            'lint_underline_style':      opt_lint_underline_style,
+            'enable_code_tree':          opt_enable_code_tree,
+            'tree_types_show':           opt_tree_types_show,
         }
         if opt_manual_didopen is not None:
             j['manual_didopen'] = opt_manual_didopen

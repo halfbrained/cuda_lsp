@@ -143,7 +143,7 @@ class TreeMan:
             _ids[id(item)] = item_id
 
     def _load_cfg(self, cfg):
-        cfg = cfg.get(KEY_TREE_TYPES_SHOW,  CFG_DEFAULT)
+        cfg = cfg.get(KEY_TREE_TYPES_SHOW)  or  CFG_DEFAULT
 
         _name_kind_map = {kind.name.lower():kind  for kind in SymbolKind}
         _types_show = (type_.strip().lower()  for type_ in cfg.lower().split(',')  if type_.strip())
