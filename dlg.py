@@ -1,9 +1,17 @@
+import os
+from collections import namedtuple
 
 from cudatext import *
 #import cudatext as ct
+import cudax_lib as apx
 
 # imported on ~access
 #from .sansio_lsp_client.structs import MarkupKind
+#from .sansio_lsp_client.events import ShowMessage, LogMessage
+
+LogMsg = namedtuple('LogMsg', 'msg type severity')
+
+_   = apx.get_translation(__file__)  # I18N
 
 FORM_W = 550
 FORM_H = 350
@@ -249,3 +257,318 @@ class Hint:
     @classmethod
     def is_under_cursor(cls):
         return cls.is_visible()  and  is_mouse_in_form(cls.h)
+
+
+SPL = chr(1)
+_icons_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'icons')
+PANEL_LOG_TAG = app_proc(PROC_GET_UNIQUE_TAG, '') # jic
+
+TYPE_MSG = 'type_msgs'
+TYPE_LOG = 'type_logs'
+
+SEVERITY_ERR = 'svr_err'
+SEVERITY_WRN = 'svr_wrn'
+SEVERITY_INFO = 'svr_inf'
+SEVERITY_LOG = 'svr_log'
+SEVERITY_NA = 'svr_na'
+
+SEVERITYS = [
+    SEVERITY_ERR,
+    SEVERITY_WRN,
+    SEVERITY_INFO,
+    SEVERITY_LOG,
+]
+SEVERITY_MAP = {
+    1: SEVERITY_ERR,
+    2: SEVERITY_WRN,
+    3: SEVERITY_INFO,
+    4: SEVERITY_LOG,
+}
+SEVERITY_IC_PATHS = {
+    SEVERITY_ERR:  os.path.join(_icons_dir, 'error.png'),
+    SEVERITY_WRN:  os.path.join(_icons_dir, 'warning.png'),
+    SEVERITY_INFO: os.path.join(_icons_dir, 'information.png'),
+    SEVERITY_LOG:  os.path.join(_icons_dir, 'hint.png'),
+    SEVERITY_NA:   os.path.join(_icons_dir, 'severity_na.png'),
+}
+
+PANEL_CAPTIONS = {
+    TYPE_MSG:       _('Messages'),
+    TYPE_LOG:       _('Logs'),
+
+    SEVERITY_ERR:   _('Error'),
+    SEVERITY_WRN:   _('Warning'),
+    SEVERITY_INFO:  _('Info'),
+    SEVERITY_LOG:   _('Log'),
+}
+
+# PanelLog proxy
+def on_panellog_sb_click(id_dlg, id_ctl, data='', info=''):
+    PanelLog.on_sb_click(id_dlg, id_ctl, data, info)
+
+
+class PanelLog:
+
+    fn_icon = os.path.join(os.path.dirname(__file__), 'icons', 'lsp.png')
+
+    panels = {} # name to instance
+
+    _colors = None
+
+    def __init__(self, panel_name, state=None):
+        global LogMessage, ShowMessage
+        from .sansio_lsp_client import LogMessage, ShowMessage
+
+        PanelLog.panels[panel_name] = self
+
+        self.name = panel_name
+
+        self._msgs = [] # ShowMessage, LogMessage, tuple(type_, str)
+        self._extra_types = set() # server stderr, etc
+        # filter panel: disabled "categories"
+        self._disabled_items = set(state.get('log_panel_filter'))  if isinstance(state, dict) else  set()
+
+        self._memo_pos = (0,0)
+        self._severity_ims = {} # severity str -> icon ind in imagelist
+        self._have_na_severity = False
+
+        self._init_panel()
+        self._setup_decor_gutter()
+
+        # use severities imagelist from memo
+        h_im = self._memo.decor(DECOR_GET_IMAGELIST)
+        statusbar_proc(self._h_sb, STATUSBAR_SET_IMAGELIST, value=h_im)
+
+        self._reset_memo()
+        self._update_sb()
+
+    @property
+    def sidepanel_name(self):
+        return 'LSP: ' + str(self.name)
+
+    @property
+    def colors(self):
+        if self._colors is None:
+            self._colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        return self._colors
+
+
+    def _init_panel(self):
+        self.h_dlg = dlg_proc(0, DLG_CREATE)
+
+        # Memo ##########
+        n = dlg_proc(self.h_dlg, DLG_CTL_ADD, prop='editor')
+        dlg_proc(self.h_dlg, DLG_CTL_PROP_SET, index=n, prop={
+            'name':'memo',
+            'align': ALIGN_CLIENT,
+            })
+        h_memo = dlg_proc(self.h_dlg, DLG_CTL_HANDLE, index=n)
+        self._memo = Editor(h_memo)
+
+        # Top buttons #######
+        n = dlg_proc(self.h_dlg, DLG_CTL_ADD, prop='statusbar')
+        dlg_proc(self.h_dlg, DLG_CTL_PROP_SET, index=n, prop={
+            'name':'statusbar',
+            'align': ALIGN_TOP,
+            })
+        self._h_sb = dlg_proc(self.h_dlg, DLG_CTL_HANDLE, index=n)
+
+        self._memo.set_prop(PROP_GUTTER_ALL,    True)
+        self._memo.set_prop(PROP_GUTTER_BM,     True)
+        self._memo.set_prop(PROP_GUTTER_FOLD,   False)
+        self._memo.set_prop(PROP_GUTTER_NUM,    False)
+        self._memo.set_prop(PROP_GUTTER_STATES, False)
+
+        self._memo.set_prop(PROP_MINIMAP,           False)
+        self._memo.set_prop(PROP_MICROMAP,          False)
+        self._memo.set_prop(PROP_LAST_LINE_ON_TOP,  False)
+        self._memo.set_prop(PROP_HILITE_CUR_LINE,   False)
+        self._memo.set_prop(PROP_WRAP,              WRAP_ON_WINDOW)
+
+        dlg_proc(self.h_dlg, DLG_SCALE)
+
+        app_proc(PROC_BOTTOMPANEL_ADD_DIALOG, (self.sidepanel_name,  self.h_dlg,  self.fn_icon))
+        #app_proc(PROC_SIDEPANEL_ADD_DIALOG, (self.sidepanel_name,  self.h_dlg,  self.fn_icon))
+
+    def _setup_decor_gutter(self):
+        for severity_str, icon_path  in SEVERITY_IC_PATHS.items():
+            _h_im = self._memo.decor(DECOR_GET_IMAGELIST)
+            _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
+            self._severity_ims[severity_str] = _ind
+
+    def _update_sb(self):
+        """ update filters bar - to reflect current state
+        """
+        h_sb = self._h_sb
+
+        bg_color = self.colors['TabActive']['color']
+
+        font_enabled_color = self.colors['TabFontActive']['color']
+        font_disabled_color = self.colors['TabFontMod']['color']
+
+        line_enabled_color = 0x7cc87c #7cc87c
+
+        # clear
+        statusbar_proc(h_sb, STATUSBAR_DELETE_ALL)
+
+        statusbar_proc(h_sb, STATUSBAR_SET_COLOR_BORDER_R, value=self.colors['TabBorderActive']['color'])
+
+        callbac_fstr = 'module=cuda_lsp.dlg;func=on_panellog_sb_click;info="{}";'
+        ###### FILL
+        # Left: classes (Msg, Log, Other)  +  State - On/Off
+        for name in [TYPE_MSG,  TYPE_LOG,  *sorted(self._extra_types)]:
+            cellind = statusbar_proc(h_sb, STATUSBAR_ADD_CELL, index=-1)
+            _caption = PANEL_CAPTIONS.get(name, name)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_TEXT, index=cellind, value=_caption)
+            _callback = callbac_fstr.format(name)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_CALLBACK, index=cellind, value=_callback)
+
+            _font_col = font_disabled_color
+            #if name not in self._disabled_types: # if enabled
+            if name not in self._disabled_items: # if enabled
+                _font_col = font_enabled_color
+                statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_LINE2, index=cellind,
+                                                                        value=line_enabled_color)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_AUTOSIZE, index=cellind, value=True)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg_color)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_FONT, index=cellind, value=_font_col)
+
+
+        # add spacer
+        cellind = statusbar_proc(h_sb, STATUSBAR_ADD_CELL, index=-1)
+        statusbar_proc(h_sb, STATUSBAR_SET_CELL_AUTOSTRETCH, index=cellind, value=True)
+        statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg_color)
+
+        # add severity filters  +  State - On/Off
+        for name in SEVERITYS:
+            cellind = statusbar_proc(h_sb, STATUSBAR_ADD_CELL, index=-1)
+            _im_ind = self._severity_ims[name]
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_IMAGEINDEX, index=cellind, value=_im_ind)
+            _callback = callbac_fstr.format(name)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_CALLBACK, index=cellind, value=_callback)
+            _hint = PANEL_CAPTIONS.get(name, 'NA')
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_HINT, index=cellind, value=_hint)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_ALIGN, index=cellind, value='C')
+
+            #_font_col = font_disabled_color
+            if name not in self._disabled_items: # if enabled
+                #_font_col = font_enabled_color
+                statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_LINE2, index=cellind,
+                                                                        value=line_enabled_color)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_AUTOSIZE, index=cellind, value=True)
+            statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg_color)
+            #statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_FONT, index=cellind, value=_font_col)
+
+    def _update_memo(self):
+        self._reset_memo()
+        self._memo.decor(DECOR_DELETE_BY_TAG, tag=PANEL_LOG_TAG)
+
+        for msg in self._msgs:
+            if self._filter_msg(msg):
+                self._append_memo_msg(msg)
+
+    def log(self, msg):   # events: ShowMessage, LogMessage
+        severity_str = SEVERITY_MAP[msg.type.value]
+        self.log_str(msg.message, type_=type(msg), severity=severity_str)
+
+    def log_str(self, s, type_, severity=SEVERITY_NA):
+        if s[-1] != '\n':
+            s += '\n'
+
+        lm = LogMsg(s, type=type_, severity=severity)
+
+        self._msgs.append(lm)
+        if self._filter_msg(lm):
+            self._append_memo_msg(lm)
+
+        # add na severity if needed
+        if severity == SEVERITY_NA  and  not self._have_na_severity:
+            SEVERITYS.append(SEVERITY_NA)
+            self._have_na_severity = True
+        # new log type appeared
+        if isinstance(type_, str)  and  type_ not in self._extra_types:
+            self._extra_types.add(type_)
+            self._update_sb()
+
+    def _append_memo_msg(self, msg):
+        _nline = self._memo_pos[1]
+        newpos = self._memo.insert(*self._memo_pos, msg.msg)
+
+        if newpos is not None:
+            self._memo_pos = newpos
+            #### decor icon
+            _imind = self._severity_ims[msg.severity]
+            self._memo.decor(DECOR_SET, line=_nline, image=_imind, tag=PANEL_LOG_TAG)
+        else:
+            print(f'NOTE: LSP: failed to show msg: {type_, len(txt), txt[:64]}')
+
+    def _reset_memo(self):
+        self._memo.set_text_all('')
+        self._memo_pos = (0,0)
+
+    def _filter_msg(self, msg):
+        if   msg.type == ShowMessage:   type_str = TYPE_MSG
+        elif msg.type == LogMessage:    type_str = TYPE_LOG
+        else:                           type_str = msg.type
+
+        #if type_str not in self._disabled_types  and  severity not in self._disabled_severitys:
+        if type_str not in self._disabled_items  and  msg.severity not in self._disabled_items:
+            return True
+
+
+    def get_filter_state(self):
+        return list(self._disabled_items)
+
+    def close(self):
+        app_proc(PROC_BOTTOMPANEL_REMOVE, self.sidepanel_name)
+        dlg_proc(self.h_dlg, DLG_FREE)
+
+        del PanelLog.panels[self.name]
+
+
+    @classmethod
+    def on_sb_click(cls, id_dlg, id_ctl, data='', info=''):
+        """ send event to the clicked panel (by .h_dlg), and refresh
+        """
+        for plog in cls.panels.values():
+            if plog.h_dlg == id_dlg:
+                if info in plog._disabled_items:
+                    plog._disabled_items.remove(info)
+                else:
+                    plog._disabled_items.add(info)
+
+                plog._update_sb()
+                plog._update_memo()
+                break
+
+    @classmethod
+    def on_theme_change(cls):
+        """ update colored stuff for every panel
+        """
+        import cudatext as ct
+
+        colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+
+        for plog in cls.panels.values():
+            plog._colors = colors   # reset saved colors
+            plog._update_sb()
+
+            # memo colors
+            for name,val in vars(ct).items():
+                if name.startswith('COLOR_ID_') and type(val) == str:
+                    theme_item_name = val
+                    theme_item = colors.get(theme_item_name)
+                    if theme_item is not None:
+                        theme_col = theme_item['color']
+                        plog._memo.set_prop(PROP_COLOR, (theme_item_name, theme_col))
+
+
+    @classmethod
+    def get_logger(cls, panel_name, state):
+        """ Main way to create panel objects
+        """
+        if panel_name not in cls.panels:
+            cls.panels[panel_name] = PanelLog(panel_name, state)
+
+        return cls.panels[panel_name]
+

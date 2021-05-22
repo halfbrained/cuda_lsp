@@ -1,3 +1,7 @@
+2021.05.22
++ add: server logs panel
++ add: server option: "log_stderr"
+
 2021.05.21
 + add: fill "Code tree" from server
 

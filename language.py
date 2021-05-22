@@ -31,7 +31,7 @@ from .util import (
         ValidationError,
     )
 from .dlg import Hint
-#from .dlg import PanelLog
+from .dlg import PanelLog
 from .book import EditorDoc
 #from .tree import TreeMan  # imported on access
 
@@ -61,7 +61,6 @@ from .sansio_lsp_client.structs import (
 import traceback
 import datetime
 
-print_server_errors = False
 LOG = False
 LOG_NAME = 'LSP'
 
@@ -98,7 +97,7 @@ GOTO_TITLES = {
 }
 
 class Language:
-    def __init__(self, cfg, cmds=None, lintstr='', underline_style=None):
+    def __init__(self, cfg, cmds=None, lintstr='', underline_style=None, state=None):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
 
         self._cfg = cfg
@@ -114,6 +113,7 @@ class Language:
         self._work_dir = cfg.get('work_dir')
         # paths to add to env  -- {var_name: list[paths]}
         self._env_paths = cfg.get('env_paths')
+        self._log_stderr = bool(cfg.get('log_stderr'))
 
         self._validate_config()
 
@@ -127,7 +127,7 @@ class Language:
 
 
         self._client = None
-        #self.plog = PanelLog(self.name)
+        self.plog = PanelLog.get_logger(self.name, state=state)
         self._treeman = None
 
         self.request_positions = {} # RequestPos
@@ -140,6 +140,7 @@ class Language:
 
         self._read_q = queue.Queue()
         self._send_q = queue.Queue()
+        self._err_q = queue.Queue()
 
         self._dbg_msgs = []
         self._dbg_bmsgs = []
@@ -252,8 +253,13 @@ class Language:
                 line = self._err.readline()
                 if line == b'':
                     break
-                if print_server_errors:
-                    print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
+                if self._log_stderr:
+                    #print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
+                    try:
+                        s = line.decode('utf-8')
+                    except:
+                        s = str(line)
+                    self._err_q.put(s)
         except Exception as ex:
             print(f'ErrReadException: {LOG_NAME}: {self.lang_str} - {ex}')
         pass;       LOG and print(f'NOTE: err reader exited')
@@ -268,6 +274,8 @@ class Language:
                     print(f'{LOG_NAME}: {self.lang_str} - header parse error: {ex}')
                     pass;       LOG and traceback.print_exc()
                     continue
+
+                pass;       LOG and print(f'{LOG_NAME}: receive time: {time.time():.3f}')
 
                 if header_bytes == b'':
                     pass;       LOG and print('NOTE: reader stopping')
@@ -408,15 +416,10 @@ class Language:
             if msg.message == getattr(self, '_last_lsp_log', None): #WTF every log duplicated
                 return
             self._last_lsp_log = msg.message
-            lines = msg.message.split('\n')
-            app_log(LOG_ADD, 'LSP_MSG:{}: {}'.format(msg.type.name, lines[0]), panel=LOG_PANEL_OUTPUT)
-            for line in lines[1:]:
-                app_log(LOG_ADD, line, panel=LOG_PANEL_OUTPUT)
-            #self.plog.log(msg)
+            self.plog.log(msg)
 
         elif msgtype == events.ShowMessage:
-            print(f'{LOG_NAME}: {self.lang_str}: [{msg.type.name.title()}] {msg.message}')
-            #self.plog.log(msg)
+            self.plog.log(msg)
 
         elif isinstance(msg, events.WorkDoneProgressCreate)  or  issubclass(msgtype, events.Progress):
             self._on_progress(msg)
@@ -438,6 +441,7 @@ class Language:
                 self.shutdown()
                 self._shutting_down = False
 
+            # read Queue
             errors = []
             while not self._read_q.empty():
                 data = self._read_q.get()
@@ -452,9 +456,17 @@ class Language:
                 for msg in events:
                     self._on_lsp_msg(msg)
 
+            # send Quue
             send_buf = self.client.send()
             if send_buf:
                 self._send_q.put(send_buf)
+
+            # stderr Queue
+            while not self._err_q.empty():
+                s = self._err_q.get()
+                self.plog.log_str(s, type_='stderr')
+
+
         except Exception as ex:
             print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
             pass;       LOG and traceback.print_exc()
@@ -708,6 +720,13 @@ class Language:
     def workspace_symbol(self, eddoc):
         self.client.workspace_symbol(query='')
 
+
+    def get_state_pair(self):
+        key = self.name
+        state = {
+            'log_panel_filter': self.plog.get_filter_state()
+        }
+        return key,state
 
     def shutdown(self, *args, **vargs):
         pass;       LOG and print('-- lang - shutting down')
@@ -983,12 +1002,12 @@ class DiagnosticsMan:
 
     def _setup_decor_gutter(self, ed):
         icon_paths = DIAG_BM_IC_PATHS
+        h_ed = ed.get_prop(PROP_HANDLE_SELF)
         for severity,kind in DIAG_BM_KINDS.items():
             icon_path = icon_paths.get(severity, '')
             _h_im = ed.decor(DECOR_GET_IMAGELIST)
             _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
-            _h_ed = ed.get_prop(PROP_HANDLE_SELF)
-            self._decor_serverity_ims.setdefault(_h_ed, {})[severity] = _ind
+            self._decor_serverity_ims.setdefault(h_ed, {})[severity] = _ind
 
 
 
