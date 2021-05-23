@@ -35,13 +35,16 @@ LOG_NAME = 'LSP'
 SERVER_RESPONSE_DIALOG_LEN = 80
 
 # considering all 'lsp_*.json' - server configs
-dir_settings = app_path(APP_DIR_SETTINGS)
-fn_config = os.path.join(dir_settings, 'cuda_lsp.json')
-fn_opt_descr = os.path.join(_plugin_dir, 'readme', 'options_description.md')
+dir_settings    = app_path(APP_DIR_SETTINGS)
+fn_config       = os.path.join(dir_settings, 'cuda_lsp.json')
+fn_opt_descr    = os.path.join(_plugin_dir,  'readme', 'options_description.md')
+fn_state        = os.path.join(dir_settings, 'cuda_lsp_state.json')
 
 SEVERS_SHUTDOWN_MAX_TIME = 2 # seconds
 SEVERS_SHUTDOWN_CHECK_PERIOD = 0.1 # seconds
 LINT_STYLE_MAP = {0:1, 1:4, 2: 2, 3:6}
+
+STATE = {} # like log-panel's filter state
 
 opt_enable_mouse_hover = True
 opt_root_dir_source = [0]
@@ -425,8 +428,32 @@ class Command:
                     if not doc  or  not doc.lang:
                         self.on_open(edt)
 
+        elif state == APPSTATE_THEME_UI:
+            from .dlg import PanelLog
+
+            PanelLog.on_theme_change()
+
 
     def on_exit(self, *args, **vargs):
+        #### save state before exiting
+        state_changed = False
+        for langid,lang in self._langs.items():
+            key,state = lang.get_state_pair()
+            if state:
+                STATE[key] = state
+            elif STATE.pop(key, None):
+                state_changed = True
+        ## if something was removed or state not empty - save
+        if state_changed or STATE:
+            # if started lang server - json will be imported;  otherwise no need to save server state
+            try:
+                js = json.dumps(STATE, indent=2)
+                with open(fn_state, 'w', encoding='utf-8') as f:
+                    f.write(js)
+            except NameError: # for missing json
+                pass
+
+
         # start servers shutdown
         for langid,lang in self._langs.items():
             lang.shutdown()
@@ -448,8 +475,11 @@ class Command:
             pass
 
 
-
     def _get_lang(self, ed_self, langid):
+        # to not import json from on_exit
+        global json
+        import json
+
         # look in existing langs with proper registration match
         for lang in self._langs.values():
             if lang.is_ed_matches(ed_self, langid):
@@ -478,6 +508,7 @@ class Command:
                                 cmds=self._hint_cmds,
                                 lintstr=opt_lint_type,
                                 underline_style=LINT_STYLE_MAP[opt_lint_underline_style],
+                                state=STATE.get(cfg.get('name'))
                         )
                     except ValidationError:
                         servers_cfgs.remove(cfg) # dont nag on every on_open
@@ -675,6 +706,13 @@ class Command:
             # apply options
             Hint.set_max_lines(opt_hover_max_lines)
 
+        # plugin state
+        if os.path.exists(fn_state):
+            with open(fn_state, 'r', encoding='utf-8') as f:
+                js = f.read()
+            j = _json_loads(js)
+            STATE.update(j)
+
         # servers
         if os.path.exists(dir_settings):
             user_lexids = {}
@@ -743,6 +781,7 @@ class Command:
 
         with open(fn_config, 'w', encoding='utf-8') as f:
             json.dump(j, f, indent=2)
+
 
     # DBG
     @property
