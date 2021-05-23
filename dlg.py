@@ -1,5 +1,5 @@
 import os
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 from cudatext import *
 #import cudatext as ct
@@ -320,6 +320,10 @@ class PanelLog:
         from .sansio_lsp_client import LogMessage, ShowMessage
 
         PanelLog.panels[panel_name] = self
+        PanelLog.type_captions = {
+            ShowMessage: TYPE_MSG,
+            LogMessage: TYPE_LOG,
+        }
 
         self.name = panel_name
 
@@ -331,6 +335,8 @@ class PanelLog:
         self._memo_pos = (0,0)
         self._severity_ims = {} # severity str -> icon ind in imagelist
         self._have_na_severity = False
+        self._sb_cellind_map = {} # name -> cellind
+        self._h_btn_sidebar = None
 
         self._init_panel()
         self._setup_decor_gutter()
@@ -390,6 +396,11 @@ class PanelLog:
         app_proc(PROC_BOTTOMPANEL_ADD_DIALOG, (self.sidepanel_name,  self.h_dlg,  self.fn_icon))
         #app_proc(PROC_SIDEPANEL_ADD_DIALOG, (self.sidepanel_name,  self.h_dlg,  self.fn_icon))
 
+        for props in app_proc(PROC_BOTTOMPANEL_ENUM_ALL, ''):
+            if props['cap'] == self.sidepanel_name:
+                self._h_btn_sidebar = props['btn_h']
+                break
+
     def _setup_decor_gutter(self):
         for severity_str, icon_path  in SEVERITY_IC_PATHS.items():
             _h_im = self._memo.decor(DECOR_GET_IMAGELIST)
@@ -408,6 +419,8 @@ class PanelLog:
 
         line_enabled_color = 0x7cc87c #7cc87c
 
+        self._sb_cellind_map.clear()
+
         # clear
         statusbar_proc(h_sb, STATUSBAR_DELETE_ALL)
 
@@ -418,6 +431,8 @@ class PanelLog:
         # Left: classes (Msg, Log, Other)  +  State - On/Off
         for name in [TYPE_MSG,  TYPE_LOG,  *sorted(self._extra_types)]:
             cellind = statusbar_proc(h_sb, STATUSBAR_ADD_CELL, index=-1)
+            self._sb_cellind_map[name] = cellind
+
             _caption = PANEL_CAPTIONS.get(name, name)
             statusbar_proc(h_sb, STATUSBAR_SET_CELL_TEXT, index=cellind, value=_caption)
             _callback = callbac_fstr.format(name)
@@ -442,6 +457,8 @@ class PanelLog:
         # add severity filters  +  State - On/Off
         for name in SEVERITYS:
             cellind = statusbar_proc(h_sb, STATUSBAR_ADD_CELL, index=-1)
+            self._sb_cellind_map[name] = cellind
+
             _im_ind = self._severity_ims[name]
             statusbar_proc(h_sb, STATUSBAR_SET_CELL_IMAGEINDEX, index=cellind, value=_im_ind)
             _callback = callbac_fstr.format(name)
@@ -458,6 +475,15 @@ class PanelLog:
             statusbar_proc(h_sb, STATUSBAR_SET_CELL_AUTOSIZE, index=cellind, value=True)
             statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_BACK, index=cellind, value=bg_color)
             #statusbar_proc(h_sb, STATUSBAR_SET_CELL_COLOR_FONT, index=cellind, value=_font_col)
+
+        self._update_counts()
+
+    def _update_counts(self, *args, **vargs):
+        msg_counts = self._get_msg_counts()
+
+        for name,cellind in self._sb_cellind_map.items():
+            _overlay = msg_counts.get(name, '')
+            statusbar_proc(self._h_sb, STATUSBAR_SET_CELL_OVERLAY, index=cellind, value=str(_overlay))
 
     def _update_memo(self):
         self._reset_memo()
@@ -481,6 +507,9 @@ class PanelLog:
         if self._filter_msg(lm):
             self._append_memo_msg(lm)
 
+        timer_proc(TIMER_START_ONE, self._update_counts, 500)
+        self._update_sidebar()
+
         # add na severity if needed
         if severity == SEVERITY_NA  and  not self._have_na_severity:
             SEVERITYS.append(SEVERITY_NA)
@@ -489,6 +518,10 @@ class PanelLog:
         if isinstance(type_, str)  and  type_ not in self._extra_types:
             self._extra_types.add(type_)
             self._update_sb()
+
+    def _update_sidebar(self):
+        if self._h_btn_sidebar:
+            button_proc(self._h_btn_sidebar, BTN_SET_OVERLAY, str(len(self._msgs)))
 
     def _append_memo_msg(self, msg):
         _nline = self._memo_pos[1]
@@ -507,19 +540,27 @@ class PanelLog:
         self._memo_pos = (0,0)
 
     def _filter_msg(self, msg):
-        if   msg.type == ShowMessage:   type_str = TYPE_MSG
-        elif msg.type == LogMessage:    type_str = TYPE_LOG
-        else:                           type_str = msg.type
+        type_str = PanelLog.type_captions.get(msg.type, msg.type)
 
-        #if type_str not in self._disabled_types  and  severity not in self._disabled_severitys:
         if type_str not in self._disabled_items  and  msg.severity not in self._disabled_items:
             return True
+
+    def _get_msg_counts(self):
+        r = defaultdict(int)
+        for msg in self._msgs:
+            type_str = PanelLog.type_captions.get(msg.type, msg.type)
+            r[type_str] += 1
+            r[msg.severity] += 1
+        return r
 
 
     def get_filter_state(self):
         return list(self._disabled_items)
 
     def close(self):
+        self._reset_memo()
+        self._msgs.clear()
+
         app_proc(PROC_BOTTOMPANEL_REMOVE, self.sidepanel_name)
         dlg_proc(self.h_dlg, DLG_FREE)
 
