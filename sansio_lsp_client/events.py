@@ -41,6 +41,20 @@ class Event(BaseModel):
     pass
 
 
+class ResponseError(Event):
+    message_id: t.Optional[Id]
+    code: int
+    message: str
+    data: t.Optional[ t.Union[
+        str,
+        int, float,
+        bool,
+        list,
+        JSONDict,
+        None,
+    ]]
+
+
 class ServerRequest(Event):
     _client: "Client" = PrivateAttr()
     _id: Id = PrivateAttr()

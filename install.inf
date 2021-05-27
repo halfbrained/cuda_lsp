@@ -8,7 +8,7 @@ api=1.0.392
 
 [item2]
 section=events
-events=on_open,on_save,on_close,on_tab_change,on_state
+events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state
 
 [item3]
 section=events
@@ -111,4 +111,10 @@ method=dbg_show_msg
 section=commands
 caption=LSP Client\Config
 method=config
+menu=o
+
+[item101]
+section=commands
+caption=LSP Client\Edit server configs...
+method=edit_server_cfg
 menu=o

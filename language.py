@@ -27,11 +27,12 @@ from .util import (
         langid2lex,
         collapse_path,
         replace_unbracketed,
+        TimerScheduler,
 
         ValidationError,
     )
 from .dlg import Hint
-from .dlg import PanelLog
+from .dlg import PanelLog, SEVERITY_ERR
 from .book import EditorDoc
 #from .tree import TreeMan  # imported on access
 
@@ -70,7 +71,10 @@ CMD_OS_KEY = 'cmd_windows' if IS_WIN else ('cmd_macos' if IS_MAC else 'cmd_unix'
 
 SNIP_ID = 'cuda_lsp__snip'
 
-TCP_CONNECT_TIMEOUT = 5 # sec
+TCP_CONNECT_TIMEOUT = 5     # sec
+MAX_FORMAT_ON_SAVE_WAIT = 1 # sec
+MIN_TIMER_TIME = 10     # ms
+MAX_TIMER_TIME = 250    # ms
 
 GOTO_EVENT_TYPES = {
     events.Definition,
@@ -96,6 +100,7 @@ GOTO_TITLES = {
     events.Declaration:     _('Go to: declaration'),
 }
 
+
 class Language:
     def __init__(self, cfg, cmds=None, lintstr='', underline_style=None, state=None):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
@@ -114,6 +119,7 @@ class Language:
         # paths to add to env  -- {var_name: list[paths]}
         self._env_paths = cfg.get('env_paths')
         self._log_stderr = bool(cfg.get('log_stderr'))
+        self._format_on_save = bool(cfg.get('format_on_save'))
 
         self._validate_config()
 
@@ -129,6 +135,14 @@ class Language:
         self._client = None
         self.plog = PanelLog.get_logger(self.name, state=state)
         self._treeman = None
+        # weakref needs a strong reference for a method-ref to work
+        self._timer_callback = self.process_queues
+        self._timer = TimerScheduler(
+                callback=self._timer_callback,
+                mintime=MIN_TIMER_TIME,
+                maxtime=MAX_TIMER_TIME,
+                delta=10,
+            )
 
         self.request_positions = {} # RequestPos
         self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
@@ -245,7 +259,8 @@ class Language:
         self.err_thread = Thread(target=self._err_read_loop, name=self.name+'-err', daemon=True)
         self.err_thread.start()
 
-        timer_proc(TIMER_START, self.process_queues, 100, tag='')
+        #timer_proc(TIMER_START, self.process_queues, 100, tag='')
+        self._timer.restart()
 
     def _err_read_loop(self):
         try:
@@ -304,8 +319,10 @@ class Language:
         try:
             while self._writer:
                 buf = self._send_q.get()
+
                 if buf is None:
                     break
+
                 self._writer.write(buf)
                 self._writer.flush()
         #except (BrokenPipeError, AttributeError):
@@ -313,6 +330,44 @@ class Language:
         except Exception as ex:
             exception = ex
         pass;       LOG and print('send loop stop exc?:' + str(exception))
+
+
+    #NOTE call immediately after adding send events, to send faster
+    def process_queues(self, tag='', info=''):
+        try:
+            if self._shutting_down:
+                self.shutdown()
+                self._shutting_down = False
+
+            # read Queue
+            errors = []
+            while not self._read_q.empty():
+                data = self._read_q.get()
+                self._dbg_bmsgs = (self._dbg_bmsgs + [data])[-128:] # dbg
+
+                events = self.client.recv(data, errors=errors)
+
+                for err in errors:
+                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
+                errors.clear()
+
+                for msg in events:
+                    self._on_lsp_msg(msg)
+
+            # send Quue
+            send_buf = self.client.send()
+            if send_buf:
+                self._send_q.put(send_buf)
+                self._timer.restart()
+
+            # stderr Queue
+            while not self._err_q.empty():
+                s = self._err_q.get()
+                self.plog.log_str(s, type_='stderr')
+
+        except Exception as ex:
+            print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
+            pass;       LOG and traceback.print_exc()
 
 
     def _on_lsp_msg(self, msg):
@@ -396,7 +451,15 @@ class Language:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
+                    ed.set_prop(PROP_RO, False)     # doc is set 'RO' during format-on-save
+
                     if msg.result:
+                        # need reverse order for applying
+                        # usually result are sorted by position (asc or desc) => reverse if [0] < [-1]
+                        if msg.result[0].range.start.line < msg.result[-1].range.start.line:
+                            msg.result.reverse()
+                        # sort in descending order
+                        msg.result.sort(reverse=True, key=lambda x:x.range.start)
                         for edit in msg.result:
                             EditorDoc.apply_edit(ed, edit)
                     else:
@@ -421,6 +484,11 @@ class Language:
         elif msgtype == events.ShowMessage:
             self.plog.log(msg)
 
+        elif msgtype == events.ResponseError:
+            _reqpos = self.request_positions.pop(msg.message_id, None)    # discard
+            errstr = f'ResponseError[{msg.code}]: {msg.message}'
+            self.plog.log_str(errstr, type_=_('Response Error'), severity=SEVERITY_ERR)
+
         elif isinstance(msg, events.WorkDoneProgressCreate)  or  issubclass(msgtype, events.Progress):
             self._on_progress(msg)
 
@@ -433,43 +501,6 @@ class Language:
         else:
             print(f'{LOG_NAME}: {self.lang_str} - unknown Message type: {msgtype}')
 
-
-    #NOTE call immediately after adding send events, to send faster
-    def process_queues(self, tag='', info=''):
-        try:
-            if self._shutting_down:
-                self.shutdown()
-                self._shutting_down = False
-
-            # read Queue
-            errors = []
-            while not self._read_q.empty():
-                data = self._read_q.get()
-                self._dbg_bmsgs = (self._dbg_bmsgs + [data])[-128:] # dbg
-
-                events = self.client.recv(data, errors=errors)
-
-                for err in errors:
-                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
-                errors.clear()
-
-                for msg in events:
-                    self._on_lsp_msg(msg)
-
-            # send Quue
-            send_buf = self.client.send()
-            if send_buf:
-                self._send_q.put(send_buf)
-
-            # stderr Queue
-            while not self._err_q.empty():
-                s = self._err_q.get()
-                self.plog.log_str(s, type_='stderr')
-
-
-        except Exception as ex:
-            print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
-            pass;       LOG and traceback.print_exc()
 
     def send_changes(self, eddoc):
         if not self.client.is_initialized:
@@ -496,6 +527,7 @@ class Language:
 
         _verdoc = eddoc.get_verdoc()
         self.client.did_change(text_document=_verdoc, content_changes=_changes)
+        self._timer.restart()
 
 
     def on_ed_shown(self, eddoc):
@@ -537,6 +569,28 @@ class Language:
                 docid = eddoc.get_docid()
                 text = eddoc.ed.get_text_all() if  include_text  else None
                 self.client.did_save(text_document=docid, text=text)
+
+    def on_save_pre(self, eddoc):
+        if not self._format_on_save:
+            return
+
+        req_id = self.request_format_doc(eddoc)
+        if req_id is not None:
+            end_time = time.time() + MAX_FORMAT_ON_SAVE_WAIT
+            eddoc.ed.set_prop(PROP_RO, True)    # prevent document editing between request and formattng
+            try:
+                while time.time() < end_time:
+                    if req_id in self.request_positions:
+                        app_idle(wait=True)
+                    else:
+                        break
+                else:
+                    msg_status(_('{}: {} - No format-on-save response came').format(
+                                                                        LOG_NAME, self.lang_str))
+            finally:
+                # check if editor closed before resetting 'RO'
+                if eddoc.ed.get_prop(PROP_TAB_TITLE) is not None:
+                    eddoc.ed.set_prop(PROP_RO, False)
 
     def on_rootdir_change(self, newroot):
         if self._client is not None  and  self.client.is_initialized:
@@ -680,6 +734,7 @@ class Language:
                 options = eddoc.get_ed_format_opts()
                 id = self.client.formatting(text_document=docid, options=options)
                 self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
+                return id
 
     def request_format_sel(self, eddoc):
         if self.client.is_initialized:
@@ -743,15 +798,8 @@ class Language:
             if self.sock:
                 self.sock.close()
 
-            """flog('closing proc 0')
-            if self.process:
-                #self.process.kill()
-                self.process.terminate()
-                self.process.wait()
-            flog('closing proc 34')"""
-
             self._closed = True
-            timer_proc(TIMER_STOP, self.process_queues, 0)
+            self._timer.stop()
 
 
     def _on_progress(self, msg):

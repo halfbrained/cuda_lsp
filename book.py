@@ -115,23 +115,25 @@ class EditorDoc:
                 break
 
             tag, i1,i2, j1,j2 = opc[0]  if opc[0][0] != 'equal' else  opc[1]
-            if tag == 'replace':    # a[i1:i2] should be replaced by b[j1:j2].
+            # replace: a[i1:i2] should be replaced by b[j1:j2].
+            # delete:  a[i1:i2] should be deleted
+            if tag == 'replace'  or  tag == 'delete':
                 _start = structs.Position(line=i1, character=0)
-                _end = structs.Position(line=i2-1, character=len(oldspl[i2-1]))
+                # end: at start of next line (to include '\n'), unless is last line and has no newline
+                if i2 == len(oldspl)  and  oldspl[i2-1][-1] != '\n'  and  oldspl[i2-1][-1] != '\r':
+                    _end = structs.Position(line=i2-1, character=len(oldspl[i2-1]))
+                else:
+                    _end = structs.Position(line=i2, character=0)
                 range_ = structs.Range(start=_start, end=_end)
-                change_str = ''.join(newspl[j1:j2])
 
-                # apply change to splits
-                oldspl[i1:i2] = newspl[j1:j2]
-
-            elif tag == 'delete':   # a[i1:i2] should be deleted
-                _start = structs.Position(line=i1, character=0)
-                _end = structs.Position(line=i2-1, character=len(oldspl[i2-1]))
-                range_ = structs.Range(start=_start, end=_end)
-                change_str = ''
-
-                # apply change to splits
-                del oldspl[i1:i2]
+                if tag == 'replace':
+                    change_str = ''.join(newspl[j1:j2])
+                    # apply change to splits
+                    oldspl[i1:i2] = newspl[j1:j2]
+                else:   # delete
+                    change_str = ''
+                    # apply change to splits
+                    del oldspl[i1:i2]
 
             elif tag == 'insert':   # b[j1:j2] should be inserted at a[i1:i1]
                 _start = structs.Position(line=i1, character=0)
@@ -147,6 +149,7 @@ class EditorDoc:
 
             change_ev = structs.TextDocumentContentChangeEvent(text=change_str, range=range_)
             changes.append(change_ev)
+        #end while
 
         if changes:
             self._ver += 1
@@ -214,7 +217,11 @@ class EditorDoc:
     #def apply_edit(ed: Editor, edit: TextEdit):
     def apply_edit(ed, edit):
         x1,y1,x2,y2 = EditorDoc.range2carets(edit.range)
-        ed.replace(x1,y1,x2,y2, edit.newText)
+        if x1==x2 and y1==y2:
+            #NOTE: need 'insert' because cant `replace()'` beyond text end
+            ed.insert(x1,y1, edit.newText)
+        else:
+            ed.replace(x1,y1,x2,y2, edit.newText)
 
     def range2carets(range):
         #x1,y1,x2,y2

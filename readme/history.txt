@@ -1,3 +1,7 @@
+2021.05.27
++ add: option "format_on_save"
++ change: server message-exchange speedup
+
 2021.05.22
 + add: server logs panel
 + add: server option: "log_stderr"

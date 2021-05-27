@@ -95,6 +95,47 @@ def replace_unbracketed(s, target_char, repl, brackets):
     return result
 
 
+class TimerScheduler:
+    """ orchestrates growing timer telta
+        `restart()` - restarts timer from `mintime`, and grows timer period by
+            accumulating `delta` between calls
+        NOTE: weakref because timer keeps references
+    """
+
+    def __init__(self, callback, mintime=10, maxtime=250, delta=10):
+        """ default: len==24;  t:10, 30, 60, 100, 150, ... 2100, 2310, 2530, 2760
+        """
+        import weakref
+
+        self._callback_wr   = weakref.ref(callback)
+
+        self._mintime       = mintime
+        self._maxtime       = maxtime
+        self._delta         = delta
+
+        self._last_period = 0
+
+    def timer_callback(self, tag='', info=''):
+        callback = self._callback_wr()
+
+        if callback is not None:
+            callback(tag, info)
+
+            if self._last_period < self._maxtime:
+                self._last_period = min(self._maxtime, self._last_period + self._delta)
+                ct.timer_proc(ct.TIMER_START, self.timer_callback, self._last_period)
+
+        else:
+            ct.timer_proc(ct.TIMER_STOP, self.timer_callback, 0)
+
+    def restart(self):
+        self._last_period = self._mintime
+        ct.timer_proc(ct.TIMER_START, self.timer_callback, self._last_period)
+
+    def stop(self):
+        ct.timer_proc(ct.TIMER_STOP, self.timer_callback, 0)
+
+
 def update_lexmap(upd):
     lex_ids.update(upd)
 

@@ -36,7 +36,7 @@ Each cmd-key must be a list of strings, e.g.
 The config key "lexers" contains mapping between CudaText lexer names and LSP language names.
 For example, while CudaText lexer name is "C#", LSP language name is "csharp", so you need
   "lexers": {
-  	 "C#": "csharp"
+     "C#": "csharp"
   }
 This mapping is needed also when you have some renamed/changed lexer, e.g. "MyPython".
 Some list of LSP language names can be seen here:
@@ -49,9 +49,12 @@ Which document symbols to show in the tree can also be configured with a comma-s
   "tree_types_show": "file,module,namespace,package,class,method,property,field,constructor,enum,interface,function,variable,constant,string,number,boolean,array,object,key,null,enummember,struct,event,operator,typeparameter" 
 Default value is: "namespace,class,method,constructor,interface,function,struct"
 
+Format document on every save (off by default). Server needs to support document formatting.
+  "format_on_save": true
+
 Log 'stderr' of server's process to log-panel (off by default):
   "log_stderr": true
-
+  
 
 Server-specific options
 -----------------------

@@ -6,6 +6,7 @@ import typing as t
 from pydantic import parse_obj_as, ValidationError
 
 from .events import (
+    ResponseError,
     Initialized,
     Completion,
     ServerRequest,
@@ -265,7 +266,10 @@ class Client:
 
         # FIXME: The errors have meanings.
         if response.error is not None:
-            raise RuntimeError("Response error!\n\n" + pprint.pformat(response.error))
+            #raise RuntimeError("Response error!\n\n" + pprint.pformat(response.error))
+            err = ResponseError.parse_obj(response.error)
+            err.message_id = response.id
+            return err
 
         event: Event
 

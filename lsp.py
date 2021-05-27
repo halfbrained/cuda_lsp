@@ -171,6 +171,14 @@ def get_project_lsp_cfg():
         with open(fn_cfg, 'r', encoding='utf-8') as f:
             return _json_loads(f.read())
 
+
+def get_server_cfg_fns():
+    if os.path.exists(dir_settings):
+        _fns = os.listdir(dir_settings)
+        _lsp_fns = [name for name in _fns  if name.startswith('lsp_')
+                                                and name.lower().endswith('.json')]
+        return _lsp_fns
+
 class Command:
 
     def __init__(self):
@@ -238,6 +246,15 @@ class Command:
         else:
             msg_status(_('No project opened'))
 
+    def edit_server_cfg(self):
+        _lsp_fns = get_server_cfg_fns() # in `dir_settings`
+        if _lsp_fns:
+            _lsp_fns.sort()
+            ind = dlg_menu(DMENU_LIST, _lsp_fns, caption=_('Choose config to edit'))
+            if ind is not None:
+                file_open(os.path.join(dir_settings, _lsp_fns[ind]))
+        else:
+            msg_status(_('No server configs exist'))
 
     #NOTE also gets called for unsaved from session
     def on_open(self, ed_self):
@@ -310,6 +327,11 @@ class Command:
         # handle lexer|ext change by saving (can't know if something changed)
         else:
             self.on_open(ed_self)
+
+    def on_save_pre(self, ed_self):
+        doc = self.book.get_doc(ed_self)
+        if doc and doc.lang:
+            doc.lang.on_save_pre(doc)
 
     def on_close(self, ed_self):
         doc = self.book.get_doc(ed_self)
@@ -714,11 +736,10 @@ class Command:
             STATE.update(j)
 
         # servers
-        if os.path.exists(dir_settings):
+        _lsp_fns = get_server_cfg_fns()
+        if _lsp_fns:
             user_lexids = {}
-            _fns = os.listdir(dir_settings)
-            _lsp_fns = [name for name in _fns  if name.startswith('lsp_')
-                                                    and name.lower().endswith('.json')]
+
             for name in _lsp_fns:
                 path = os.path.join(dir_settings, name)
                 with open(path, 'r', encoding='utf-8') as f:
