@@ -87,9 +87,15 @@ class EditorDoc:
         self._langid = lex2langid(self._lex)
         self._lang = lang
 
-    def get_changes(self):
+    def get_changes(self, whole_doc):
+        """ whole_doc - bool
+        """
         oldtxt,  self._txt  =  self._txt,  self.get_text_all()
-        if oldtxt == self._txt:     return []
+        if oldtxt == self._txt:
+            return []
+        if whole_doc:
+            _ch = structs.TextDocumentContentChangeEvent.whole_document_change(change_text=self._txt)
+            return [_ch]
 
         oldspl = oldtxt.splitlines(keepends=True)
         newspl = self._txt.splitlines(keepends=True)
@@ -104,7 +110,8 @@ class EditorDoc:
             if time.time() - _start_time > 0.1:
                 # taken too long, send whole doc
                 changes.clear()
-                changes.append(structs.TextDocumentContentChangeEvent(text=self._txt))
+                _ch = structs.TextDocumentContentChangeEvent.whole_document_change(change_text=self._txt)
+                changes.append(_ch)
                 break
 
             # matches example: [Match(a=0, b=0, size=4), Match(a=4, b=5, size=0)]

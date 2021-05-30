@@ -94,8 +94,16 @@ class TextDocumentContentChangeEvent(BaseModel):
     range: t.Optional[Range]
     rangeLength: t.Optional[int] # deprecated, use .range
 
+
+    def dict(self):
+        d = super(TextDocumentContentChangeEvent, self).dict()
+        # css server requires un-filled values to be absent
+        if self.rangeLength is None:    del d['rangeLength']
+        if self.range is None:          del d['range']
+        return d
+
     @classmethod
-    def change_range(
+    def range_change(
         cls,
         change_start: Position,
         change_end: Position,
@@ -118,7 +126,7 @@ class TextDocumentContentChangeEvent(BaseModel):
         )
 
     @classmethod
-    def change_whole_document(
+    def whole_document_change(
         cls, change_text: str
     ) -> "TextDocumentContentChangeEvent":
         return cls(text=change_text)

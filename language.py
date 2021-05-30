@@ -46,7 +46,6 @@ from .sansio_lsp_client import client as lsp
 from .sansio_lsp_client import events
 from .sansio_lsp_client.structs import (
         TextDocumentSyncKind,
-        TextDocumentContentChangeEvent,
         Registration,
         DiagnosticSeverity,
         Location,
@@ -62,7 +61,7 @@ from .sansio_lsp_client.structs import (
 import traceback
 import datetime
 
-LOG = False
+LOG = True
 LOG_NAME = 'LSP'
 
 IS_WIN = os.name=='nt'
@@ -349,6 +348,8 @@ class Language:
 
                 for err in errors:
                     msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
+                    pass;       LOG and self.plog.log_str(f'{err}', type_='dbg', severity=SEVERITY_ERR)
+
                 errors.clear()
 
                 for msg in events:
@@ -517,13 +518,11 @@ class Language:
             pass;       LOG and print('send_changes return: NONE sync')
             return
 
-        if docsynckind == TextDocumentSyncKind.INCREMENTAL:
-            _changes = eddoc.get_changes()
-            if not _changes:
-                pass;       LOG and print('send_changes return: no changes')
-                return
-        else: # TextDocumentSyncKind.FULL:
-            _changes = [TextDocumentContentChangeEvent(text=eddoc.get_text_all())]
+        _is_whole_doc = docsynckind == TextDocumentSyncKind.FULL
+        _changes = eddoc.get_changes(whole_doc=_is_whole_doc)
+        if not _changes:
+            pass;       LOG and print('send_changes return: no changes')
+            return
 
         _verdoc = eddoc.get_verdoc()
         self.client.did_change(text_document=_verdoc, content_changes=_changes)
@@ -1125,27 +1124,35 @@ class ServerConfig:
         docsync = capabilities.get('textDocumentSync', {})
 
         ### ~pseudo-registrations
+        is_openclose = True
+        if isinstance(docsync, dict):
+            is_openclose = docsync.get('openClose', False) is not False
+
+            _save = docsync.get('save', False) # save?: boolean | SaveOptions;
+
+            # SAVE
+            if _save is not False:
+                _opts = {**_default_opts}
+                if isinstance(_save, dict):
+                    _opts.update(_save)
+                self.capabs.append(Registration(id='0', method=METHOD_DID_SAVE, registerOptions=_opts))
+
         #  OPEN, CLOSE
-        if docsync.get('openClose', False) is not False:
+        if is_openclose:
             open = Registration(id='0', method=METHOD_DID_OPEN, registerOptions=_default_opts)
             close = Registration(id='0', method=METHOD_DID_CLOSE, registerOptions=_default_opts)
             self.capabs += [open, close]
 
-        _save = docsync.get('save', False) # save?: boolean | SaveOptions;
-
-        # SAVE
-        if _save is not False:
-            _opts = {**_default_opts}
-            if isinstance(_save, dict):
-                _opts.update(_save)
-            self.capabs.append(Registration(id='0', method=METHOD_DID_SAVE, registerOptions=_opts))
-
         # CHANGE
-        if 'change' in docsync:
+        if isinstance(docsync, dict):
             _default_sync = int(TextDocumentSyncKind.NONE)
-            _docsynckind = TextDocumentSyncKind(docsync.get('change', _default_sync))
-            _opts = {**_default_opts, 'syncKind': _docsynckind}
-            self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
+            docsynckind = TextDocumentSyncKind(docsync.get('change', _default_sync))
+        else:
+            docsynckind = TextDocumentSyncKind(docsync)
+
+        _opts = {**_default_opts, 'syncKind': docsynckind}
+        self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
+
 
         ### WORKSPACE
         workspace = capabilities.get('workspace')
