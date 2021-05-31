@@ -14,7 +14,9 @@ from wcmatch.glob import globmatch, GLOBSTAR, BRACE
 
 from cudatext import *
 import cudax_lib as appx
-#from cudax_lib import get_translation
+
+from cudax_lib import get_translation
+_ = get_translation(__file__)  # I18N
 
 from .util import (
         get_first,
@@ -25,17 +27,25 @@ from .util import (
         langid2lex,
         collapse_path,
         replace_unbracketed,
+        TimerScheduler,
 
         ValidationError,
     )
 from .dlg import Hint
+from .dlg import PanelLog, SEVERITY_ERR
 from .book import EditorDoc
+#from .tree import TreeMan  # imported on access
+
+ver = sys.version_info
+if (ver.major, ver.minor) < (3, 7):
+    modules36_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lsp_modules36')
+    sys.path.append(modules36_dir)
+
 
 from .sansio_lsp_client import client as lsp
 from .sansio_lsp_client import events
 from .sansio_lsp_client.structs import (
         TextDocumentSyncKind,
-        TextDocumentContentChangeEvent,
         Registration,
         DiagnosticSeverity,
         Location,
@@ -48,13 +58,11 @@ from .sansio_lsp_client.structs import (
         WorkspaceFolder,
     )
 
-#_   = get_translation(__file__)  # I18N
-
 import traceback
 import datetime
 
-print_server_errors = False
-LOG = False
+LOG = True
+DBG = LOG
 LOG_NAME = 'LSP'
 
 IS_WIN = os.name=='nt'
@@ -63,7 +71,10 @@ CMD_OS_KEY = 'cmd_windows' if IS_WIN else ('cmd_macos' if IS_MAC else 'cmd_unix'
 
 SNIP_ID = 'cuda_lsp__snip'
 
-TCP_CONNECT_TIMEOUT = 5 # sec
+TCP_CONNECT_TIMEOUT = 5     # sec
+MAX_FORMAT_ON_SAVE_WAIT = 1 # sec
+MIN_TIMER_TIME = 10     # ms
+MAX_TIMER_TIME = 250    # ms
 
 GOTO_EVENT_TYPES = {
     events.Definition,
@@ -81,9 +92,17 @@ CALLABLE_COMPLETIONS = {
 
 RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
 
+GOTO_TITLES = {
+    events.Definition:      _('Go to: definition'),
+    events.References:      _('Go to: references'),
+    events.Implementation:  _('Go to: implementation'),
+    events.TypeDefinition:  _('Go to: type definition'),
+    events.Declaration:     _('Go to: declaration'),
+}
+
 
 class Language:
-    def __init__(self, cfg, cmds=None, lintstr='', underline_style=None):
+    def __init__(self, cfg, cmds=None, lintstr='', underline_style=None, state=None):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
 
         self._cfg = cfg
@@ -99,6 +118,8 @@ class Language:
         self._work_dir = cfg.get('work_dir')
         # paths to add to env  -- {var_name: list[paths]}
         self._env_paths = cfg.get('env_paths')
+        self._log_stderr = bool(cfg.get('log_stderr'))
+        self._format_on_save = bool(cfg.get('format_on_save'))
 
         self._validate_config()
 
@@ -112,9 +133,20 @@ class Language:
 
 
         self._client = None
+        self.plog = PanelLog.get_logger(self.name, state=state)
+        self._treeman = None
+        # weakref needs a strong reference for a method-ref to work
+        self._timer_callback = self.process_queues
+        self._timer = TimerScheduler(
+                callback=self._timer_callback,
+                mintime=MIN_TIMER_TIME,
+                maxtime=MAX_TIMER_TIME,
+                delta=10,
+            )
 
         self.request_positions = {} # RequestPos
         self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
+        self.progresses = {} # token -> progress start message
 
         self._closed = False
         self.sock = None
@@ -122,9 +154,14 @@ class Language:
 
         self._read_q = queue.Queue()
         self._send_q = queue.Queue()
+        self._err_q = queue.Queue()
 
         self._dbg_msgs = []
         self._dbg_bmsgs = []
+
+        if DBG:
+            self.plog.set_lex(ed.get_prop(PROP_LEXER_FILE))
+
 
     def __str__(self):
         return f'Lang:{self.lang_str}'
@@ -133,12 +170,9 @@ class Language:
     def client(self):
         if self._client is None:
             root_uri = path_to_uri(self._work_dir) if self._work_dir else None
-            # for now just a single folder in workspace
-            wsfolders = [ WorkspaceFolder(uri=root_uri, name='Root'), ]  if self._work_dir else None
-
             self._client = lsp.Client(
                 root_uri=root_uri,
-                workspace_folders=wsfolders,
+                workspace_folders=self.workspace_folders,
                 process_id=os.getpid(),
             )
             self._start_server()
@@ -147,6 +181,28 @@ class Language:
     @property
     def client_state_str(self):
         return (self._client.state.name).title()  if self._client is not None else  'Not started'
+
+    @property
+    def workspace_folders(self):
+        if self._work_dir:
+            # for now just a single folder in workspace
+            root_uri = path_to_uri(self._work_dir)
+            return [ WorkspaceFolder(uri=root_uri, name='Root'), ]
+        else:
+            return None
+
+    @property
+    def tree_enabled(self):
+        return self._cfg.get('enable_code_tree')
+
+    @property
+    def treeman(self):
+        if not self._treeman  and  self.tree_enabled:
+            from .tree import TreeMan
+
+            self._treeman = TreeMan(self._cfg)
+
+        return self._treeman
 
     def is_client_exited(self):
         return self._client.state == lsp.ClientState.EXITED
@@ -159,22 +215,24 @@ class Language:
         return False
 
 
-
     def _start_server(self):
         # if config has tcp port - connetct to it
         if self._tcp_port and type(self._tcp_port) == int:
-            print(f'{LOG_NAME}: {self.lang_str} - connecting via TCP, port: {self._tcp_port}')
+            print(_('{}: {} - connecting via TCP, port: {}').format(
+                  LOG_NAME, self.lang_str, self._tcp_port))
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                print(f'NOTE: {LOG_NAME}: {self.lang_str} - Failed to connect on port {self.tcp_port}')
+                print(_('NOTE: {}: {} - Failed to connect on port {}').format(
+                      LOG_NAME, self.lang_str, self._tcp_port))
                 return
 
             self._reader = self.sock.makefile('rwb')  # type: ignore
             self._writer = self._reader
         # not port - create stdio-process
         else:
-            print(f'{LOG_NAME}: starting server - {self.lang_str}; root: {self._work_dir}')
+            print(_('{}: starting server - {}; root: {}').format(
+                  LOG_NAME, self.lang_str, self._work_dir))
 
             env = ServerConfig.prepare_env(self._env_paths)
 
@@ -202,11 +260,11 @@ class Language:
         self.reader_thread.start()
         self.writer_thread.start()
 
-        if print_server_errors:
-            self.err_thread = Thread(target=self._err_read_loop, name=self.name+'-err', daemon=True)
-            self.err_thread.start()
+        self.err_thread = Thread(target=self._err_read_loop, name=self.name+'-err', daemon=True)
+        self.err_thread.start()
 
-        timer_proc(TIMER_START, self.process_queues, 100, tag='')
+        #timer_proc(TIMER_START, self.process_queues, 100, tag='')
+        self._timer.restart()
 
     def _err_read_loop(self):
         try:
@@ -214,7 +272,13 @@ class Language:
                 line = self._err.readline()
                 if line == b'':
                     break
-                print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
+                if self._log_stderr:
+                    #print(f'ServerError: {LOG_NAME}: {self.lang_str} - {line}') # bytes
+                    try:
+                        s = line.decode('utf-8')
+                    except:
+                        s = str(line)
+                    self._err_q.put(s)
         except Exception as ex:
             print(f'ErrReadException: {LOG_NAME}: {self.lang_str} - {ex}')
         pass;       LOG and print(f'NOTE: err reader exited')
@@ -229,6 +293,8 @@ class Language:
                     print(f'{LOG_NAME}: {self.lang_str} - header parse error: {ex}')
                     pass;       LOG and traceback.print_exc()
                     continue
+
+                pass;       LOG and print(f'{LOG_NAME}: receive time: {time.time():.3f}')
 
                 if header_bytes == b'':
                     pass;       LOG and print('NOTE: reader stopping')
@@ -257,8 +323,10 @@ class Language:
         try:
             while self._writer:
                 buf = self._send_q.get()
+
                 if buf is None:
                     break
+
                 self._writer.write(buf)
                 self._writer.flush()
         #except (BrokenPipeError, AttributeError):
@@ -266,6 +334,46 @@ class Language:
         except Exception as ex:
             exception = ex
         pass;       LOG and print('send loop stop exc?:' + str(exception))
+
+
+    #NOTE call immediately after adding send events, to send faster
+    def process_queues(self, tag='', info=''):
+        try:
+            if self._shutting_down:
+                self.shutdown()
+                self._shutting_down = False
+
+            # read Queue
+            errors = []
+            while not self._read_q.empty():
+                data = self._read_q.get()
+                self._dbg_bmsgs = (self._dbg_bmsgs + [data])[-128:] # dbg
+
+                events = self.client.recv(data, errors=errors)
+
+                for err in errors:
+                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
+                    pass;       LOG and self.plog.log_str(f'{err}', type_='dbg', severity=SEVERITY_ERR)
+
+                errors.clear()
+
+                for msg in events:
+                    self._on_lsp_msg(msg)
+
+            # send Quue
+            send_buf = self.client.send()
+            if send_buf:
+                self._send_q.put(send_buf)
+                self._timer.restart()
+
+            # stderr Queue
+            while not self._err_q.empty():
+                s = self._err_q.get()
+                self.plog.log_str(s, type_='stderr')
+
+        except Exception as ex:
+            print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
+            pass;       LOG and traceback.print_exc()
 
 
     def _on_lsp_msg(self, msg):
@@ -283,37 +391,43 @@ class Language:
             self.process_queues()
             app_proc(PROC_EXEC_PLUGIN, 'cuda_lsp,on_lang_inited,'+self.name)
 
-        #elif msgtype == events.WorkplaceFolders:
-            #msg.reply(folders=...)
+        elif msgtype == events.WorkspaceFolders:
+            msg.reply(folders=self.workspace_folders)
 
         elif msgtype == events.Completion:
             items = msg.completion_list.items
             pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
             reqpos = self.request_positions.pop(msg.message_id, None)
-            if items  and  reqpos:
-                compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                compl.show_complete(msg.message_id, items)
-                self._last_complete = (compl, msg.message_id, items)
+            if items:
+                if reqpos:
+                    compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
+                    compl.show_complete(msg.message_id, items)
+                    self._last_complete = (compl, msg.message_id, items)
+            else:
+                msg_status(f'{LOG_NAME}: {self.lang_str}: Completion - no info')
 
         elif msgtype == events.Hover:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
                     first_item = msg.contents[0] if isinstance(msg.contents, list) and len(msg.contents) > 0 else msg.contents
-                    if isinstance(first_item, (MarkedString, str)):
-                        # for deprecated 'MarkedString' or 'str' default to 'markdown'
-                        markupkind = MarkupKind.MARKDOWN
-                    else:
-                        # can be a list (supposedly)
-                        markupkind = getattr(first_item, 'kind', None)
+                    if first_item: # if received anything
+                        if isinstance(first_item, (MarkedString, str)):
+                            # for deprecated 'MarkedString' or 'str' default to 'markdown'
+                            markupkind = MarkupKind.MARKDOWN
+                        else:
+                            # can be a list (supposedly)
+                            markupkind = getattr(first_item, 'kind', None)
 
-                    filtered_cmds = self.scfg.filter_commands(self._caret_cmds)
-                    Hint.show(msg.m_str(),
-                            caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
-                            markupkind=markupkind,
-                            language=getattr(first_item, 'language', None),
-                            caret_cmds=filtered_cmds,
-                    )
+                        filtered_cmds = self.scfg.filter_commands(self._caret_cmds)
+                        Hint.show(msg.m_str(),
+                                caret=_reqpos.target_pos_caret,   cursor_loc_start=_reqpos.cursor_ed,
+                                markupkind=markupkind,
+                                language=getattr(first_item, 'language', None),
+                                caret_cmds=filtered_cmds,
+                        )
+                    else:
+                        msg_status(f'{LOG_NAME}: {self.lang_str}: Hover - no info')
 
         elif msgtype == events.SignatureHelp:
             if msg.message_id in self.request_positions:
@@ -325,36 +439,61 @@ class Language:
                         caret_x, caret_y = _reqpos.carets[0][:2]
                         # 8 - default duration
                         msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
+                    else:
+                        msg_status(f'{LOG_NAME}: {self.lang_str}: Signature help - no info')
 
         #GOTOs
         elif msgtype in GOTO_EVENT_TYPES:
             skip_dlg = msgtype == events.Definition
-            self.do_goto(items=msg.result, dlg_caption=f'Go to {msgtype.__name__}', skip_dlg=skip_dlg)
+            dlg_caption = GOTO_TITLES.get(msgtype, f'Go to {msgtype.__name__}')
+            self.do_goto(items=msg.result, dlg_caption=dlg_caption, skip_dlg=skip_dlg)
 
         elif msgtype == events.MDocumentSymbols:
-            self.show_symbols(msg.result)
+            _reqpos = self.request_positions.pop(msg.message_id)
+            if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed  and  self.treeman:
+                self.treeman.fill_tree(msg.result)
 
         elif msgtype == events.DocumentFormatting:
             if msg.message_id in self.request_positions:
                 _reqpos = self.request_positions.pop(msg.message_id)
-                if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed  and  msg.result:
-                    for edit in msg.result:
-                        EditorDoc.apply_edit(ed, edit)
+                if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
+                    ed.set_prop(PROP_RO, False)     # doc is set 'RO' during format-on-save
+
+                    if msg.result:
+                        # need reverse order for applying
+                        # usually result are sorted by position (asc or desc) => reverse if [0] < [-1]
+                        if msg.result[0].range.start.line < msg.result[-1].range.start.line:
+                            msg.result.reverse()
+                        # sort in descending order
+                        msg.result.sort(reverse=True, key=lambda x:x.range.start)
+                        for edit in msg.result:
+                            EditorDoc.apply_edit(ed, edit)
+                    else:
+                        msg_status(f'{LOG_NAME}: {self.lang_str}: Document formatting - no info')
 
         elif msgtype == events.PublishDiagnostics:
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
+
+        elif msgtype == events.ConfigurationRequest:
+            cfgs = [ServerConfig.get_configuration(self._cfg, cfgitem) for cfgitem in msg.items]
+            msg.reply(cfgs)
 
         elif msgtype == events.LogMessage:
             # abandoning server - ignore logs
             if self._shutting_down is not None:
                 return
-            if msg.message == getattr(self, '_last_lsp_log', None): #WTF every log duplicated
-                return
-            self._last_lsp_log = msg.message
-            lines = msg.message.split('\n')
-            app_log(LOG_ADD, 'LSP_MSG:{}: {}'.format(msg.type.name, lines[0]), panel=LOG_PANEL_OUTPUT)
-            for line in lines[1:]:
-                app_log(LOG_ADD, line, panel=LOG_PANEL_OUTPUT)
+            self.plog.log(msg)
+
+        elif msgtype == events.ShowMessage:
+            self.plog.log(msg)
+
+        elif msgtype == events.ResponseError:
+            _reqpos = self.request_positions.pop(msg.message_id, None)    # discard
+            errstr = f'ResponseError[{msg.code}]: {msg.message}'
+            self.plog.log_str(errstr, type_=_('Response Error'), severity=SEVERITY_ERR)
+
+        elif isinstance(msg, events.WorkDoneProgressCreate)  or  issubclass(msgtype, events.Progress):
+            self._on_progress(msg)
 
         elif msgtype == events.Shutdown:
             print(f'{LOG_NAME}: {self.lang_str}[{self.client_state_str}] - got shutdown response, exiting')
@@ -365,34 +504,6 @@ class Language:
         else:
             print(f'{LOG_NAME}: {self.lang_str} - unknown Message type: {msgtype}')
 
-
-    #NOTE call immediately after adding send events, to send faster
-    def process_queues(self, tag='', info=''):
-        try:
-            if self._shutting_down:
-                self.shutdown()
-                self._shutting_down = False
-
-            errors = []
-            while not self._read_q.empty():
-                data = self._read_q.get()
-                self._dbg_bmsgs = (self._dbg_bmsgs + [data])[-128:] # dbg
-
-                events = self.client.recv(data, errors=errors)
-
-                for err in errors:
-                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
-                errors.clear()
-
-                for msg in events:
-                    self._on_lsp_msg(msg)
-
-            send_buf = self.client.send()
-            if send_buf:
-                self._send_q.put(send_buf)
-        except Exception as ex:
-            print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
-            pass;       LOG and traceback.print_exc()
 
     def send_changes(self, eddoc):
         if not self.client.is_initialized:
@@ -409,16 +520,16 @@ class Language:
             pass;       LOG and print('send_changes return: NONE sync')
             return
 
-        if docsynckind == TextDocumentSyncKind.INCREMENTAL:
-            _changes = eddoc.get_changes()
-            if not _changes:
-                pass;       LOG and print('send_changes return: no changes')
-                return
-        else: # TextDocumentSyncKind.FULL:
-            _changes = [TextDocumentContentChangeEvent(text=eddoc.get_text_all())]
+        _is_whole_doc = docsynckind == TextDocumentSyncKind.FULL
+        _changes = eddoc.get_changes(whole_doc=_is_whole_doc)
+        if not _changes:
+            pass;       LOG and print('send_changes return: no changes')
+            return
 
         _verdoc = eddoc.get_verdoc()
         self.client.did_change(text_document=_verdoc, content_changes=_changes)
+        self._timer.restart()
+
 
     def on_ed_shown(self, eddoc):
         self.diagnostics_man.on_doc_shown(eddoc)
@@ -432,6 +543,7 @@ class Language:
                 doc = eddoc.get_textdoc()
                 self.client.did_open(doc)
                 return True
+
 
     def on_close(self, eddoc):
         if self.client.is_initialized:
@@ -458,6 +570,28 @@ class Language:
                 docid = eddoc.get_docid()
                 text = eddoc.ed.get_text_all() if  include_text  else None
                 self.client.did_save(text_document=docid, text=text)
+
+    def on_save_pre(self, eddoc):
+        if not self._format_on_save:
+            return
+
+        req_id = self.request_format_doc(eddoc)
+        if req_id is not None:
+            end_time = time.time() + MAX_FORMAT_ON_SAVE_WAIT
+            eddoc.ed.set_prop(PROP_RO, True)    # prevent document editing between request and formattng
+            try:
+                while time.time() < end_time:
+                    if req_id in self.request_positions:
+                        app_idle(wait=True)
+                    else:
+                        break
+                else:
+                    msg_status(_('{}: {} - No format-on-save response came').format(
+                                                                        LOG_NAME, self.lang_str))
+            finally:
+                # check if editor closed before resetting 'RO'
+                if eddoc.ed.get_prop(PROP_TAB_TITLE) is not None:
+                    eddoc.ed.set_prop(PROP_RO, False)
 
     def on_rootdir_change(self, newroot):
         if self._client is not None  and  self.client.is_initialized:
@@ -526,12 +660,12 @@ class Language:
             if isinstance(link, Location):
                 return (link.uri, link.range)
             elif isinstance(link, LocationLink):
-                return (link.targeturi, targetSelectionRange)
+                return (link.targetUri, link.targetSelectionRange)
             else:
                 raise Exception('Invalid goto-link type: '+str(type(link)))
 
         if not items:
-            msg_status(f'{LOG_NAME}: {self.lang_str} - no results for "{dlg_caption}"')
+            msg_status(f'{LOG_NAME}: {self.lang_str}: {dlg_caption} - no info')
             return
 
         if isinstance(items, list):
@@ -558,33 +692,6 @@ class Language:
         app_idle(True) # fixes editor not scrolled to caret
         ed.set_caret(targetrange.start.character, targetrange.start.line) # goto specified position start
         ed.set_prop(PROP_LINE_TOP, max(0, targetrange.start.line-3))
-
-
-    def show_symbols(self, items):
-        # DocumentSymbol - hierarchy
-        def flatten(l, parent, items): #SKIP
-            if items is None  or  len(items) == 0:      return
-
-            l.extend(( (item.name, parent or '', item.kind, item.selectionRange)  for item in items ))
-            # recurse children
-            map(flatten, ((l, item.name, item.children) for item in items  if item.children))
-
-        if items is None  or  len(items) == 0:
-            pass;       LOG and print(f'no symbols')
-            return
-
-        if type(items[0]) == DocumentSymbol: # hierarchy - flatten
-            targets = []
-            flatten(targets, '', items)
-        else: # SymbolInformation -> (name,parent,kind,loc)
-            targets = [(item.name, item.containerName or '', item.kind, item.location)  for item in items]
-
-        targets.sort(key=lambda t: (t[0].lower(), t[1].lower(), t[2])) # loc -- Location or Range
-
-        dlg_items = [f'{name}\t{kind.name.title()} {" in "+parent if parent else ""}'
-                        for name,parent,kind,loc in targets]
-        dlg_menu(DMENU_LIST_ALT, dlg_items, caption='Go to symbol')
-
 
     def request_sighelp(self, eddoc):
         id, pos = self._action_by_name(METHOD_SIG_HELP, eddoc)
@@ -628,6 +735,7 @@ class Language:
                 options = eddoc.get_ed_format_opts()
                 id = self.client.formatting(text_document=docid, options=options)
                 self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
+                return id
 
     def request_format_sel(self, eddoc):
         if self.client.is_initialized:
@@ -643,15 +751,20 @@ class Language:
                     self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
 
 
-    def doc_symbol(self, eddoc):
+    def update_tree(self, eddoc):
+        """ returns True if feature supported
+        """
         if self.client.is_initialized:
             opts = self.scfg.method_opts(METHOD_DOC_SYMBOLS, eddoc)
             if opts is not None  and  eddoc.lang is not None: # lang check -- is opened
                 self.send_changes(eddoc) # for later: server can give edits on save
 
                 docid = eddoc.get_docid()
-                self.client.doc_symbol(docid)
+                id = self.client.doc_symbol(docid)
 
+                self._save_req_pos(id=id, target_pos_caret=None) # save current editor handle
+                self.process_queues()
+                return True
 
     def call_hierarchy_in(self, eddoc):
         self.send_changes(eddoc)
@@ -663,6 +776,12 @@ class Language:
     def workspace_symbol(self, eddoc):
         self.client.workspace_symbol(query='')
 
+
+    def get_state_pair(self):
+        key = self.name
+        state = self.plog.get_state()
+
+        return key,state
 
     def shutdown(self, *args, **vargs):
         pass;       LOG and print('-- lang - shutting down')
@@ -679,24 +798,46 @@ class Language:
             if self.sock:
                 self.sock.close()
 
-            """flog('closing proc 0')
-            if self.process:
-                #self.process.kill()
-                self.process.terminate()
-                self.process.wait()
-            flog('closing proc 34')"""
-
             self._closed = True
-            timer_proc(TIMER_STOP, self.process_queues, 0)
+            self._timer.stop()
 
+
+    def _on_progress(self, msg):
+        if isinstance(msg, events.WorkDoneProgressCreate):
+            self.progresses[msg.token] = None
+            msg.reply()
+
+        elif isinstance(msg, events.WorkDoneProgress):
+            val = msg.value
+            title = None
+            if isinstance(msg, events.WorkDoneProgressBegin):
+                self.progresses[msg.token] = msg
+                title = val.title
+                msg_str = f': {val.message}'  if val.message else ''
+
+            elif isinstance(msg, events.WorkDoneProgressReport):
+                title = self.progresses[msg.token].value.title
+                msg_str = ''
+                if val.message:                     msg_str = f': {val.message}'
+                elif val.percentage is not None:    msg_str = f' [{val.percentage}%]'
+
+            elif isinstance(msg, events.WorkDoneProgressEnd):
+                title = self.progresses.pop(msg.token).value.title # deletes start-message
+                msg_str = f': {val.message}'  if val.message else  ' [Done]'
+
+            if title:
+                msg_status(f'{LOG_NAME}: {self.lang_str} - {title + msg_str}')
 
     def _save_req_pos(self, id, target_pos_caret=None):
+        """ save request's caret position, and active editor -- to check if proper editor
+        """
         h = ed.get_prop(PROP_HANDLE_SELF)
         carets = ed.get_carets()
         _cursor = app_proc(PROC_GET_MOUSE_POS, '') # screen coords
         cursor_ed = ed.convert(CONVERT_SCREEN_TO_LOCAL, *_cursor)
         _req = RequestPos(h,  carets=carets,  target_pos_caret=target_pos_caret,  cursor_ed=cursor_ed)
         self.request_positions[id] = _req
+
 
     def _validate_config(self):
         """ aborts server start if invalid config
@@ -789,7 +930,6 @@ class DiagnosticsMan:
     def set_diagnostics(self, uri, diag_list):
         if not self._linttype:
             return
-
         if len(diag_list) > 0  or  self.uri_diags.get(uri):
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
@@ -872,7 +1012,6 @@ class DiagnosticsMan:
                             color_border=err_col,  border_down=self._underline_style)
 
 
-
     def _get_gutter_data(self, diag_list):
         line_diags = defaultdict(list) # line -> list of diagnostics
         for d in diag_list:
@@ -911,12 +1050,12 @@ class DiagnosticsMan:
 
     def _setup_decor_gutter(self, ed):
         icon_paths = DIAG_BM_IC_PATHS
+        h_ed = ed.get_prop(PROP_HANDLE_SELF)
         for severity,kind in DIAG_BM_KINDS.items():
             icon_path = icon_paths.get(severity, '')
             _h_im = ed.decor(DECOR_GET_IMAGELIST)
             _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
-            _h_ed = ed.get_prop(PROP_HANDLE_SELF)
-            self._decor_serverity_ims.setdefault(_h_ed, {})[severity] = _ind
+            self._decor_serverity_ims.setdefault(h_ed, {})[severity] = _ind
 
 
 
@@ -974,6 +1113,16 @@ METHOD_PROVIDERS = {
     #METHOD_WS_SYMBOLS       : '',
 }
 
+# not started by user - dont print "unsupported"
+AUTO_METHODS = {
+    METHOD_DID_OPEN,
+    METHOD_DID_CLOSE,
+    METHOD_DID_SAVE,
+    METHOD_DID_CHANGE,
+
+    METHOD_COMPLETION,
+    METHOD_SIG_HELP,
+}
 
 class ServerConfig:
     def __init__(self, initialized, langids, lang_str):
@@ -987,27 +1136,35 @@ class ServerConfig:
         docsync = capabilities.get('textDocumentSync', {})
 
         ### ~pseudo-registrations
+        is_openclose = True
+        if isinstance(docsync, dict):
+            is_openclose = docsync.get('openClose', False) is not False
+
+            _save = docsync.get('save', False) # save?: boolean | SaveOptions;
+
+            # SAVE
+            if _save is not False:
+                _opts = {**_default_opts}
+                if isinstance(_save, dict):
+                    _opts.update(_save)
+                self.capabs.append(Registration(id='0', method=METHOD_DID_SAVE, registerOptions=_opts))
+
         #  OPEN, CLOSE
-        if docsync.get('openClose', False) is not False:
+        if is_openclose:
             open = Registration(id='0', method=METHOD_DID_OPEN, registerOptions=_default_opts)
             close = Registration(id='0', method=METHOD_DID_CLOSE, registerOptions=_default_opts)
             self.capabs += [open, close]
 
-        _save = docsync.get('save', False) # save?: boolean | SaveOptions;
-
-        # SAVE
-        if _save is not False:
-            _opts = {**_default_opts}
-            if isinstance(_save, dict):
-                _opts.update(_save)
-            self.capabs.append(Registration(id='0', method=METHOD_DID_SAVE, registerOptions=_opts))
-
         # CHANGE
-        if 'change' in docsync:
+        if isinstance(docsync, dict):
             _default_sync = int(TextDocumentSyncKind.NONE)
-            _docsynckind = TextDocumentSyncKind(docsync.get('change', _default_sync))
-            _opts = {**_default_opts, 'syncKind': _docsynckind}
-            self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
+            docsynckind = TextDocumentSyncKind(docsync.get('change', _default_sync))
+        else:
+            docsynckind = TextDocumentSyncKind(docsync)
+
+        _opts = {**_default_opts, 'syncKind': docsynckind}
+        self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
+
 
         ### WORKSPACE
         workspace = capabilities.get('workspace')
@@ -1054,7 +1211,7 @@ class ServerConfig:
                     if ServerConfig.match_capability(registration, ed_self, langid):
                         return registration.registerOptions
 
-            if method_name != METHOD_DID_OPEN:
+            if method_name not in AUTO_METHODS:
                 print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
 
         elif method_name.startswith('workspace/'):
@@ -1104,6 +1261,17 @@ class ServerConfig:
                 #print(f'* Unsupported function by server: {name}')
                 res[name] = None  # None denotes unsupported command - dimmed in hover dlg
         return res
+
+    def get_configuration(cfg, req):
+        """ cfg - user server config
+            req - server's request -- ConfigurationItem
+        """
+        settings = cfg.get('settings', {})
+        if req.section:
+            return settings.get(req.section, {})
+        else:
+            return settings
+
 
     def prepare_env(env_paths):
         if not env_paths:       return
@@ -1190,11 +1358,13 @@ class CompletionMan:
                 text = item.label
 
         is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
+        _line_txt = ed.get_text_line(y2)
+        is_bracket_follows = len(_line_txt) > x2  and  _line_txt[x2] == '('
         # main edit
-        new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if is_callable else ''))
+        new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if (is_callable and not is_bracket_follows) else ''))
         # move caret at ~end of inserted text
         if new_caret:
-            if not is_callable:
+            if not is_callable or is_bracket_follows:
                 ed.set_caret(*new_caret)
             else:
                 ed.set_caret(new_caret[0] - 1,  new_caret[1])

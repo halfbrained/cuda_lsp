@@ -12,6 +12,8 @@ JSONDict = t.Dict[str, t.Any]
 
 Id = t.Union[int, str]
 
+ProgressToken = t.Union[int, str]
+
 
 class Request(BaseModel):
     method: str
@@ -21,16 +23,11 @@ class Request(BaseModel):
 
 class Response(BaseModel):
     id: t.Optional[Id]
-    result: t.Optional[JSONDict]
-    #result: t.Optional[t.Union[ # MY
-        #JSONDict,
-        #t.List[t.Any],]]
+    result: t.Optional[t.Union[ # MY
+        t.List[t.Any],
+        JSONDict,
+        ]]
     error: t.Optional[JSONDict]
-
-# MY
-# type checked in Client._handle_response()
-class ResponseList(Response):
-    result: t.Optional[t.List[t.Any]]
 
 
 class MessageType(enum.IntEnum):
@@ -64,6 +61,10 @@ class Position(BaseModel):
     line: int
     character: int
 
+    # for sorting
+    def __lt__(self, other):
+        return (self.character < other.character) if self.line == other.line else (self.line < other.line)
+
 
 class Range(BaseModel):
     start: Position
@@ -93,8 +94,16 @@ class TextDocumentContentChangeEvent(BaseModel):
     range: t.Optional[Range]
     rangeLength: t.Optional[int] # deprecated, use .range
 
+
+    def dict(self):
+        d = super(TextDocumentContentChangeEvent, self).dict()
+        # css server requires un-filled values to be absent
+        if self.rangeLength is None:    del d['rangeLength']
+        if self.range is None:          del d['range']
+        return d
+
     @classmethod
-    def change_range(
+    def range_change(
         cls,
         change_start: Position,
         change_end: Position,
@@ -117,7 +126,7 @@ class TextDocumentContentChangeEvent(BaseModel):
         )
 
     @classmethod
-    def change_whole_document(
+    def whole_document_change(
         cls, change_text: str
     ) -> "TextDocumentContentChangeEvent":
         return cls(text=change_text)
@@ -269,7 +278,6 @@ class Diagnostic(BaseModel):
 
     relatedInformation: t.Optional[t.List[DiagnosticRelatedInformation]]
 
-# new ##################
 """ HOVER #################
 Hover:
     * contents: MarkedString | MarkedString[] | MarkupContent;
@@ -387,10 +395,13 @@ class DocumentSymbol(BaseModel): # symbols: hierarchy
     range: Range
     selectionRange: Range
     # https://stackoverflow.com/questions/36193540
-    children: t.Optional['DocumentSymbol']
+    children: t.Optional[t.List['DocumentSymbol']]
 
     def mpos(self):
         return self.selectionRange.start.character, self.selectionRange.start.line
+
+DocumentSymbol.update_forward_refs()
+
 
 class Registration(BaseModel):
     id: str
@@ -408,3 +419,33 @@ class FormattingOptions(BaseModel):
 class WorkspaceFolder(BaseModel):
     uri: str
     name: str
+
+
+
+class ProgressValue(BaseModel):
+    pass
+
+class WorkDoneProgressValue(ProgressValue):
+    pass
+
+class WorkDoneProgressBeginValue(WorkDoneProgressValue):
+    kind: str = 'begin'
+    title: str
+    cancellable: t.Optional[bool]
+    message: t.Optional[str]
+    percentage: t.Optional[int]
+
+class WorkDoneProgressReportValue(WorkDoneProgressValue):
+    kind: str = 'report'
+    cancellable: t.Optional[bool]
+    message: t.Optional[str]
+    percentage: t.Optional[int]
+
+class WorkDoneProgressEndValue(WorkDoneProgressValue):
+    kind: str = 'end'
+    message: t.Optional[str]
+
+
+class ConfigurationItem(BaseModel):
+    scopeUri: t.Optional[str]
+    section: t.Optional[str]

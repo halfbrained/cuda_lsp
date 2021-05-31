@@ -6,6 +6,7 @@ import typing as t
 from pydantic import parse_obj_as, ValidationError
 
 from .events import (
+    ResponseError,
     Initialized,
     Completion,
     ServerRequest,
@@ -30,6 +31,14 @@ from .events import (
     RegisterCapabilityRequest,
     MDocumentSymbols,
     DocumentFormatting,
+    Progress,
+    WorkDoneProgress,
+    WorkDoneProgressCreate,
+    WorkDoneProgressBegin,
+    WorkDoneProgressReport,
+    WorkDoneProgressEnd,
+    ConfigurationRequest,
+    WorkspaceFolders,
 )
 from .structs import (
     Response,
@@ -50,7 +59,6 @@ from .structs import (
     Location,
     LocationLink,
     # NEW
-    ResponseList,
     SymbolInformation,
     FormattingOptions,
     Range,
@@ -75,6 +83,10 @@ CAPABILITIES = {
             #'willSaveWaitUntil': True,
             'dynamicRegistration': True,
             #'willSave': True
+        },
+
+        'publishDiagnostics': {
+            'relatedInformation': True
         },
 
         'completion': {
@@ -138,6 +150,15 @@ CAPABILITIES = {
         },
     },
 
+    'window': {
+        'showMessage': {
+            #'messageActionItem': {
+                #'additionalPropertiesSupport': True
+            #}
+        },
+        'workDoneProgress': True
+    },
+
     'workspace': {
         'symbol': {
             'dynamicRegistration': True,
@@ -153,10 +174,10 @@ CAPABILITIES = {
         #},
         #'applyEdit': True,
         #'executeCommand': {},
-        #'configuration': True,
-        #'didChangeConfiguration': {
-            #'dynamicRegistration': True
-        #}
+        'configuration': True,
+        'didChangeConfiguration': {
+            'dynamicRegistration': True
+        }
     },
 }
 
@@ -187,6 +208,9 @@ class Client:
         # bignums, but I think that's an unlikely enough case that checking for
         # it would just litter the code unnecessarily.
         self._id_counter = 0
+
+        # Store type of '$/progress' for parsing
+        self._progress_tokens_map: t.Dict[ProgressToken, t.Type[Progress]] = {}
 
         # prepare workspace folders for sending -- to `dict`
         if workspace_folders:
@@ -242,13 +266,16 @@ class Client:
 
         # FIXME: The errors have meanings.
         if response.error is not None:
-            raise RuntimeError("Response error!\n\n" + pprint.pformat(response.error))
+            #raise RuntimeError("Response error!\n\n" + pprint.pformat(response.error))
+            err = ResponseError.parse_obj(response.error)
+            err.message_id = response.id
+            return err
 
         event: Event
 
         if request.method == "initialize":
             assert self._state == ClientState.WAITING_FOR_INITIALIZED
-            self._send_notification("initialized")
+            self._send_notification("initialized", params={}) # 'gopls' doesnt recognise 'None' 'params'
             event = Initialized.parse_obj(response.result)
             self._state = ClientState.NORMAL
 
@@ -279,47 +306,47 @@ class Client:
             )
 
         elif request.method == "textDocument/hover":
-            event = Hover.parse_obj(response.result)
+            if response.result is not None:
+                event = Hover.parse_obj(response.result)
+            else:
+                event = Hover(contents=[])  # null response
             event.message_id = response.id
 
         elif request.method == "textDocument/signatureHelp":
-            event = SignatureHelp.parse_obj(response.result)
+            if response.result is not None:
+                event = SignatureHelp.parse_obj(response.result)
+            else:
+                event = SignatureHelp(signatures=[])
             event.message_id = response.id
 
         elif request.method == "textDocument/documentSymbol":
-            result_type = t.get_type_hints(MDocumentSymbols)['result']
-            event = MDocumentSymbols(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(MDocumentSymbols, response)
+            event.message_id = response.id
 
         #GOTOs
         elif request.method == "textDocument/definition":
-            result_type = t.get_type_hints(Definition)['result']
-            event = Definition(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(Definition, response)
+
         elif request.method == "textDocument/references":
-            event = References(result=parse_obj_as(t.List[Location], response.result))
+            event = parse_obj_as(References, response)
         elif request.method == "textDocument/implementation":
-            result_type = t.get_type_hints(Implementation)['result']
-            event = Implementation(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(Implementation, response)
         elif request.method == "textDocument/declaration":
-            result_type = t.get_type_hints(Declaration)['result']
-            event = Declaration(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(Declaration, response)
         elif request.method == "textDocument/typeDefinition":
-            result_type = t.get_type_hints(TypeDefinition)['result']
-            event = TypeDefinition(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(TypeDefinition, response)
 
         elif request.method == "textDocument/prepareCallHierarchy":
-            result_type = t.get_type_hints(MCallHierarchItems)['result']
-            event = MCallHierarchItems(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(MCallHierarchItems, response)
 
         elif (request.method == "textDocument/formatting"
                 or request.method == "textDocument/rangeFormatting"):
-            result_type = t.get_type_hints(DocumentFormatting)['result']
-            event = DocumentFormatting(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(DocumentFormatting, response)
             event.message_id = response.id
 
         # WORKSPACE
         elif request.method == "workspace/symbol":
-            result_type = t.get_type_hints(MWorkspaceSymbols)['result']
-            event = MWorkspaceSymbols(result=parse_obj_as(result_type, response.result))
+            event = parse_obj_as(MWorkspaceSymbols, response)
 
         else:
             raise NotImplementedError((response, request))
@@ -345,7 +372,10 @@ class Client:
                 )
 
         if request.method == "workspace/workspaceFolders":
-            return parse_request()
+            return parse_request(WorkspaceFolders)
+
+        elif request.method == "workspace/configuration":
+            return parse_request(ConfigurationRequest)
 
         elif request.method == "window/showMessage":
             return parse_request(ShowMessage)
@@ -353,13 +383,32 @@ class Client:
             return parse_request(ShowMessageRequest)
         elif request.method == "window/logMessage":
             return parse_request(LogMessage)
+
         elif request.method == "textDocument/publishDiagnostics":
             return parse_request(PublishDiagnostics)
 
+        elif request.method == "window/workDoneProgress/create":
+            ev = parse_request(WorkDoneProgressCreate)
+            self._progress_tokens_map[request.params['token']] = WorkDoneProgress
+            return parse_request(WorkDoneProgressCreate)
+
+        elif request.method == "$/progress":
+            progress_type = self._progress_tokens_map.get(request.params['token'])
+
+            if progress_type == WorkDoneProgress:
+                kind = request.params.get('value', {}).get('kind')
+                if kind == 'begin':
+                    return parse_request(WorkDoneProgressBegin)
+                elif kind == 'report':
+                    return parse_request(WorkDoneProgressReport)
+                elif kind == 'end':
+                    del self._progress_tokens_map[request.params["token"]]
+                    return parse_request(WorkDoneProgressEnd)
+
         elif request.method == "client/registerCapability":
             return parse_request(RegisterCapabilityRequest)
-        else:
-            raise NotImplementedError(request)
+
+        raise NotImplementedError(request)
 
     def recv(self, data: bytes, errors: t.Optional[list] = None) -> t.List[Event]:
         self._recv_buf += data
@@ -370,7 +419,7 @@ class Client:
         events: t.List[Event] = []
         for message in messages:
             try:
-                if isinstance(message, Response) or isinstance(message, ResponseList):
+                if isinstance(message, Response):
                     events.append(self._handle_response(message))
                 elif isinstance(message, Request):
                     events.append(self._handle_request(message))
@@ -394,7 +443,7 @@ class Client:
 
     def exit(self) -> None:
         assert self._state == ClientState.SHUTDOWN
-        self._send_notification(method="exit")
+        self._send_notification(method="exit", params={})
         self._state = ClientState.EXITED
 
     def cancel_last_request(self) -> None:

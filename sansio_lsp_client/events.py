@@ -26,6 +26,12 @@ from .structs import (
     Registration,
     DocumentSymbol,
     WorkspaceFolder,
+    ProgressToken,
+    ProgressValue,
+    WorkDoneProgressBeginValue,
+    WorkDoneProgressReportValue,
+    WorkDoneProgressEndValue,
+    ConfigurationItem,
 )
 
 Id = t.Union[int, str]
@@ -33,6 +39,20 @@ Id = t.Union[int, str]
 
 class Event(BaseModel):
     pass
+
+
+class ResponseError(Event):
+    message_id: t.Optional[Id]
+    code: int
+    message: str
+    data: t.Optional[ t.Union[
+        str,
+        int, float,
+        bool,
+        list,
+        JSONDict,
+        None,
+    ]]
 
 
 class ServerRequest(Event):
@@ -78,6 +98,28 @@ class LogMessage(ServerNotification):
     type: MessageType
     message: str
 
+class WorkDoneProgressCreate(ServerRequest):
+    token: ProgressToken
+
+    def reply(self) -> None:
+        self._client._send_response(id=self._id, result=None)
+
+class Progress(ServerNotification):
+    token: ProgressToken
+    value: ProgressValue
+
+class WorkDoneProgress(Progress):
+    pass
+
+class WorkDoneProgressBegin(WorkDoneProgress):
+    value: WorkDoneProgressBeginValue
+
+class WorkDoneProgressReport(WorkDoneProgress):
+    value: WorkDoneProgressReportValue
+
+class WorkDoneProgressEnd(WorkDoneProgress):
+    value: WorkDoneProgressEndValue
+
 
 # XXX: should these two be just Events or?
 class Completion(Event):
@@ -95,7 +137,6 @@ class PublishDiagnostics(ServerNotification):
     diagnostics: t.List[Diagnostic]
 
 
-# NEW ##################
 """ Hover:
     * contents: MarkedString | MarkedString[] | MarkupContent;
     * range?: Range;
@@ -145,7 +186,7 @@ class Definition(Event):
 
 # result is a list, so putting i a custom class
 class References(Event):
-    result: t.List[Location]
+    result: t.Union[t.List[Location], None]
 
 class MCallHierarchItems(Event):
     result: t.Union[t.List[CallHierarchyItem], None]
@@ -160,6 +201,7 @@ class MWorkspaceSymbols(Event):
     result: t.Union[t.List[SymbolInformation], None]
 
 class MDocumentSymbols(Event):
+    message_id: t.Optional[Id] # custom...
     result: t.Union[t.List[SymbolInformation], t.List[DocumentSymbol], None]
 
 class Declaration(Event):
@@ -197,3 +239,10 @@ class WorkspaceFolders(ServerRequest):
         self._client._send_response(
             id=self._id, result=[f.dict() for f in folders] if folders is not None else None
         )
+
+class ConfigurationRequest(ServerRequest):
+    items: t.List[ConfigurationItem]
+
+    def reply(self, result=t.List[t.Any]) -> None:
+        self._client._send_response(id=self._id,  result=result)
+
