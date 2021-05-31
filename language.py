@@ -61,7 +61,7 @@ from .sansio_lsp_client.structs import (
 import traceback
 import datetime
 
-LOG = True
+LOG = False
 DBG = LOG
 LOG_NAME = 'LSP'
 
