@@ -186,7 +186,7 @@ class Definition(Event):
 
 # result is a list, so putting i a custom class
 class References(Event):
-    result: t.List[Location]
+    result: t.Union[t.List[Location], None]
 
 class MCallHierarchItems(Event):
     result: t.Union[t.List[CallHierarchyItem], None]

@@ -95,6 +95,7 @@ class Hint:
                 'align': ALIGN_CLIENT,
                 'sp_a': FORM_GAP,
                 'h': FORM_H,
+                'on_click_link': cls.on_click_link,
                 })
         h_ed = dlg_proc(h, DLG_CTL_HANDLE, index=n)
         # Editor.set_text_all() doesn't clutter edit history, so no unnecessary stuff is stored in RAM
@@ -215,6 +216,12 @@ class Hint:
             if f:
                 f(caret=cls.current_caret)
 
+    @classmethod
+    def on_click_link(cls, id_dlg, id_ctl, data='', info=''):
+        import webbrowser
+
+        if data:
+            webbrowser.open(data)
 
     @classmethod
     def set_max_lines(cls, nlines):
@@ -315,6 +322,8 @@ class PanelLog:
 
     _colors = None
 
+    TAG_ED_MENU_WRAP = 'ed_wrap'
+
     def __init__(self, panel_name, state=None):
         global LogMessage, ShowMessage
         from .sansio_lsp_client import LogMessage, ShowMessage
@@ -331,12 +340,14 @@ class PanelLog:
         self._extra_types = set() # server stderr, etc
         # filter panel: disabled "categories"
         self._disabled_items = set(state.get('log_panel_filter'))  if isinstance(state, dict) else  set()
+        self._is_wrap = state.get('is_wrap')  if isinstance(state, dict) else  True
 
         self._memo_pos = (0,0)
         self._severity_ims = {} # severity str -> icon ind in imagelist
         self._have_na_severity = False
         self._sb_cellind_map = {} # name -> cellind
         self._h_btn_sidebar = None
+        self._h_ed_menu = None
 
         self._init_panel()
         self._setup_decor_gutter()
@@ -367,6 +378,7 @@ class PanelLog:
         dlg_proc(self.h_dlg, DLG_CTL_PROP_SET, index=n, prop={
             'name':'memo',
             'align': ALIGN_CLIENT,
+            'on_menu': self.on_ed_menu,
             })
         h_memo = dlg_proc(self.h_dlg, DLG_CTL_HANDLE, index=n)
         self._memo = Editor(h_memo)
@@ -379,6 +391,8 @@ class PanelLog:
             })
         self._h_sb = dlg_proc(self.h_dlg, DLG_CTL_HANDLE, index=n)
 
+        self._set_memo_wrap(self._is_wrap)
+
         self._memo.set_prop(PROP_GUTTER_ALL,    True)
         self._memo.set_prop(PROP_GUTTER_BM,     True)
         self._memo.set_prop(PROP_GUTTER_FOLD,   False)
@@ -389,7 +403,6 @@ class PanelLog:
         self._memo.set_prop(PROP_MICROMAP,          False)
         self._memo.set_prop(PROP_LAST_LINE_ON_TOP,  False)
         self._memo.set_prop(PROP_HILITE_CUR_LINE,   False)
-        self._memo.set_prop(PROP_WRAP,              WRAP_ON_WINDOW)
 
         dlg_proc(self.h_dlg, DLG_SCALE)
 
@@ -406,6 +419,31 @@ class PanelLog:
             _h_im = self._memo.decor(DECOR_GET_IMAGELIST)
             _ind = imagelist_proc(_h_im, IMAGELIST_ADD, value=icon_path)
             self._severity_ims[severity_str] = _ind
+
+    def _get_ed_menu(self):
+        """ copy, select all, clear, toggle wrap,
+        """
+        if self._h_ed_menu is None:
+            import cudatext_cmd
+
+            self._h_ed_menu = menu_proc(0, MENU_CREATE)
+            h_menu = self._h_ed_menu
+
+            _la_copy =      lambda *args,**vargs: self._memo.cmd(cudatext_cmd.cCommand_ClipboardCopy)
+            _la_select_all = lambda *args,**vargs: self._memo.cmd(cudatext_cmd.cCommand_SelectAll)
+            _la_wrap  =     lambda *args,**vargs: self.toggle_wrap()
+            _la_clear =     lambda *args,**vargs: self.clear()
+
+            menu_proc(h_menu, MENU_ADD, command=_la_copy,       caption=_('Copy'))
+            menu_proc(h_menu, MENU_ADD, command=_la_select_all, caption=_('Select all'))
+            menu_proc(h_menu, MENU_ADD,   caption='-')
+            menu_proc(h_menu, MENU_ADD, command=_la_wrap, caption=_('Toggle word wrap'),
+                                                                        tag=self.TAG_ED_MENU_WRAP)
+            menu_proc(h_menu, MENU_ADD,   caption='-')
+            menu_proc(h_menu, MENU_ADD, command=_la_clear, caption=_('Clear'))
+        #end if
+        return self._h_ed_menu
+
 
     def _update_sb(self):
         """ update filters bar - to reflect current state
@@ -498,7 +536,7 @@ class PanelLog:
         self.log_str(msg.message, type_=type(msg), severity=severity_str)
 
     def log_str(self, s, type_, severity=SEVERITY_NA):
-        if s[-1] != '\n':
+        if s and s[-1] != '\n':
             s += '\n'
 
         lm = LogMsg(s, type=type_, severity=severity)
@@ -518,6 +556,19 @@ class PanelLog:
         if isinstance(type_, str)  and  type_ not in self._extra_types:
             self._extra_types.add(type_)
             self._update_sb()
+
+    def clear(self):
+        self._msgs.clear()
+        self._update_memo()
+        self._update_counts()
+
+    def toggle_wrap(self):
+        self._is_wrap = not self._is_wrap
+        self._set_memo_wrap(self._is_wrap)
+
+    def set_lex(self, lexer):
+        self._memo.set_prop(PROP_LEXER_FILE, lexer)
+
 
     def _update_sidebar(self):
         if self._h_btn_sidebar:
@@ -539,6 +590,11 @@ class PanelLog:
         self._memo.set_text_all('')
         self._memo_pos = (0,0)
 
+    def _set_memo_wrap(self, is_wrap):
+        _wrap = WRAP_ON_WINDOW  if is_wrap else  WRAP_OFF
+        self._memo.set_prop(PROP_WRAP, _wrap)
+
+
     def _filter_msg(self, msg):
         type_str = PanelLog.type_captions.get(msg.type, msg.type)
 
@@ -554,8 +610,24 @@ class PanelLog:
         return r
 
 
-    def get_filter_state(self):
-        return list(self._disabled_items)
+    def get_state(self):
+        state = {
+            'log_panel_filter': list(self._disabled_items),
+            'is_wrap': self._is_wrap,
+        }
+        return state
+
+
+    def on_ed_menu(self, id_dlg, id_ctl, data='', info=''):
+        # (139819628679408, 0, {'btn': 1, 'state': '', 'x': 248, 'y': 115}, '')
+        h_menu = self._get_ed_menu()
+        for item in menu_proc(h_menu, MENU_ENUM):
+            if item.get('tag') == self.TAG_ED_MENU_WRAP:
+                menu_proc(item['id'], MENU_SET_CHECKED, command=self._is_wrap)
+                break
+        menu_proc(h_menu, MENU_SHOW)
+        return False
+
 
     def close(self):
         self._reset_memo()

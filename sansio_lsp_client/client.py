@@ -306,11 +306,17 @@ class Client:
             )
 
         elif request.method == "textDocument/hover":
-            event = Hover.parse_obj(response.result)
+            if response.result is not None:
+                event = Hover.parse_obj(response.result)
+            else:
+                event = Hover(contents=[])  # null response
             event.message_id = response.id
 
         elif request.method == "textDocument/signatureHelp":
-            event = SignatureHelp.parse_obj(response.result)
+            if response.result is not None:
+                event = SignatureHelp.parse_obj(response.result)
+            else:
+                event = SignatureHelp(signatures=[])
             event.message_id = response.id
 
         elif request.method == "textDocument/documentSymbol":
@@ -322,7 +328,7 @@ class Client:
             event = parse_obj_as(Definition, response)
 
         elif request.method == "textDocument/references":
-            event = References(result=parse_obj_as(t.List[Location], response.result))
+            event = parse_obj_as(References, response)
         elif request.method == "textDocument/implementation":
             event = parse_obj_as(Implementation, response)
         elif request.method == "textDocument/declaration":

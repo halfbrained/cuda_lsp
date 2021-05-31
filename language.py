@@ -62,6 +62,7 @@ import traceback
 import datetime
 
 LOG = True
+DBG = LOG
 LOG_NAME = 'LSP'
 
 IS_WIN = os.name=='nt'
@@ -157,6 +158,10 @@ class Language:
 
         self._dbg_msgs = []
         self._dbg_bmsgs = []
+
+        if DBG:
+            self.plog.set_lex(ed.get_prop(PROP_LEXER_FILE))
+
 
     def __str__(self):
         return f'Lang:{self.lang_str}'
@@ -477,9 +482,6 @@ class Language:
             # abandoning server - ignore logs
             if self._shutting_down is not None:
                 return
-            if msg.message == getattr(self, '_last_lsp_log', None): #WTF every log duplicated
-                return
-            self._last_lsp_log = msg.message
             self.plog.log(msg)
 
         elif msgtype == events.ShowMessage:
@@ -777,9 +779,8 @@ class Language:
 
     def get_state_pair(self):
         key = self.name
-        state = {
-            'log_panel_filter': self.plog.get_filter_state()
-        }
+        state = self.plog.get_state()
+
         return key,state
 
     def shutdown(self, *args, **vargs):
@@ -1112,6 +1113,17 @@ METHOD_PROVIDERS = {
     #METHOD_WS_SYMBOLS       : '',
 }
 
+# not started by user - dont print "unsupported"
+AUTO_METHODS = {
+    METHOD_DID_OPEN,
+    METHOD_DID_CLOSE,
+    METHOD_DID_SAVE,
+    METHOD_DID_CHANGE,
+
+    METHOD_COMPLETION,
+    METHOD_SIG_HELP,
+}
+
 class ServerConfig:
     def __init__(self, initialized, langids, lang_str):
         capabilities = initialized.capabilities
@@ -1199,7 +1211,7 @@ class ServerConfig:
                     if ServerConfig.match_capability(registration, ed_self, langid):
                         return registration.registerOptions
 
-            if method_name != METHOD_DID_OPEN:
+            if method_name not in AUTO_METHODS:
                 print(f'NOTE: {LOG_NAME}: {self.lang_str} - unsupported method: {method_name}')
 
         elif method_name.startswith('workspace/'):
