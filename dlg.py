@@ -48,8 +48,7 @@ class Hint:
     h = None
     theme_name = None
     current_caret = None
-    def func(*args, **vargs):
-        print(f'**** dlg innner')
+    re_unescape_bslash = None
 
     @classmethod
     def init_form(cls):
@@ -105,6 +104,7 @@ class Hint:
         edt.set_prop(PROP_MINIMAP, False)
         edt.set_prop(PROP_MICROMAP, False)
         edt.set_prop(PROP_LAST_LINE_ON_TOP, False)
+        edt.set_prop(PROP_WRAP, WRAP_ON_WINDOW)
 
         cls.theme_name = app_proc(PROC_THEME_UI_GET, '')
 
@@ -114,6 +114,8 @@ class Hint:
     # language - from deprecated 'MarkedString'
     @classmethod
     def show(cls, text, caret, cursor_loc_start, markupkind=None, language=None, caret_cmds=None):
+        import html
+
         if not text:
             return
 
@@ -136,14 +138,16 @@ class Hint:
         ### dialog Editor setup
         cls.ed.set_prop(PROP_RO, False)
         try:
+            if markupkind == MarkupKind.MARKDOWN:
+                cls.ed.set_prop(PROP_LEXER_FILE, 'Markdown')
+                text = html.unescape(text)
+                text = cls.unescape_bslash(text)
+            else:
+                cls.ed.set_prop(PROP_LEXER_FILE, None)
+
             cls.ed.set_text_all(text)
             cls.ed.set_prop(PROP_LINE_TOP, 0)
             cls.ed.set_prop(PROP_SCROLL_HORZ, 0)
-
-            if markupkind == MarkupKind.MARKDOWN:
-                cls.ed.set_prop(PROP_LEXER_FILE, 'Markdown')
-            else:
-                cls.ed.set_prop(PROP_LEXER_FILE, None)
         finally:
             cls.ed.set_prop(PROP_RO, True)
 
@@ -264,6 +268,15 @@ class Hint:
     @classmethod
     def is_under_cursor(cls):
         return cls.is_visible()  and  is_mouse_in_form(cls.h)
+
+    @classmethod
+    def unescape_bslash(cls, text):
+        if cls.re_unescape_bslash is None:
+            import re
+
+            cls.re_unescape_bslash = re.compile(r'\\([^\\])')
+
+        return cls.re_unescape_bslash.sub(r'\1', text)
 
 
 SPL = chr(1)
