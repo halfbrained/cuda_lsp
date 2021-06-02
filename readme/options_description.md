@@ -34,9 +34,9 @@
     * 2 - "dashes"
     * 3 - "wave"
 
-* enable_code_tree - fill "Code tree" from the LSP server
+* enable_code_tree - fill "Code Tree" from the LSP server
 
-* tree_types_show - which document symbols to show in the tree. Empty string for default value, or comma-separated string of symbol kinds:
+* tree_types_show - which document symbols to show in the "Code Tree". Empty string for default value, or comma-separated string of symbol kinds:
     * shown by default:
         * namespace
         * class
@@ -64,5 +64,5 @@
         * enummember
         * event
         * operator
-        * typeparamete
+        * typeparameter
 
