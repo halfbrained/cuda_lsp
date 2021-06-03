@@ -5,7 +5,7 @@
     * 1 - first directory in project
     * 2 - project main-file's directory
 
-* send_change_on_request - send changes only before request 
+* send_change_on_request - send changes only before request
     * false - changes to the documents are sent to server after edit and a short delay (default)
     * true - sent only before requests (will delay server's analysis)
 
@@ -34,37 +34,35 @@
     * 2 - "dashes"
     * 3 - "wave"
 
-* enable_code_tree - fill "Code tree" from the LSP server
+* enable_code_tree - fill "Code Tree" from the LSP server
 
-* tree_types_show - which document symbols to show in the tree. Empty string for default value, 
-		or comma-separated string of symbol kinds:
-    shown by default
-    * namespace
-    * class
-    * method
-    * constructor
-    * interface
-    * function
-    * struct
-    
-    hidden
-    * file
-    * module
-    * package
-    * property
-    * field
-    * enum
-    * variable
-    * constant
-    * string
-    * number
-    * boolean
-    * array
-    * object
-    * key
-    * null
-    * enummember
-    * event
-    * operator
-    * typeparamete 
+* tree_types_show - which document symbols to show in the "Code Tree". Empty string for default value, or comma-separated string of symbol kinds:
+    * shown by default:
+        * namespace
+        * class
+        * method
+        * constructor
+        * interface
+        * function
+        * struct
+    * hidden:
+        * file
+        * module
+        * package
+        * property
+        * field
+        * enum
+        * variable
+        * constant
+        * string
+        * number
+        * boolean
+        * array
+        * object
+        * key
+        * null
+        * enummember
+        * event
+        * operator
+        * typeparameter
 

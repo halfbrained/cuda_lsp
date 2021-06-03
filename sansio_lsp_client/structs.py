@@ -377,7 +377,7 @@ class TextDocumentSyncKind(enum.IntEnum):
 class SymbolInformation(BaseModel): # symbols: flat list
     name: str
     kind: SymbolKind
-    tags: t.Optional[SymbolTag]
+    tags: t.Optional[t.List[SymbolTag]]
     deprecated: t.Optional[bool]
     location: Location
     containerName: t.Optional[str]
@@ -390,7 +390,7 @@ class DocumentSymbol(BaseModel): # symbols: hierarchy
     name: str
     detail: t.Optional[str]
     kind: SymbolKind
-    tags: t.Optional[SymbolTag]
+    tags: t.Optional[t.List[SymbolTag]]
     deprecated: t.Optional[bool]
     range: Range
     selectionRange: Range
