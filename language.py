@@ -446,7 +446,8 @@ class Language:
         elif msgtype in GOTO_EVENT_TYPES:
             skip_dlg = msgtype == events.Definition
             dlg_caption = GOTO_TITLES.get(msgtype, f'Go to {msgtype.__name__}')
-            self.do_goto(items=msg.result, dlg_caption=dlg_caption, skip_dlg=skip_dlg)
+            reqpos = self.request_positions.pop(msg.message_id)
+            self.do_goto(items=msg.result, dlg_caption=dlg_caption, skip_dlg=skip_dlg, reqpos=reqpos)
 
         elif msgtype == events.MDocumentSymbols:
             _reqpos = self.request_positions.pop(msg.message_id)
@@ -651,7 +652,7 @@ class Language:
         if id is not None:
             self._save_req_pos(id=id, target_pos_caret=pos)
 
-    def do_goto(self, items, dlg_caption, skip_dlg=False):
+    def do_goto(self, items, dlg_caption, skip_dlg=False, reqpos=None):
         """ items: Location or t.List[t.Union[Location, LocationLink]], None
         """
         def link_to_target(link): #SKIP
@@ -688,10 +689,30 @@ class Language:
             uri,targetrange = link_to_target(items)
 
         targetpath = uri_to_path(uri)
-        file_open(targetpath)
-        app_idle(True) # fixes editor not scrolled to caret
-        ed.set_caret(targetrange.start.character, targetrange.start.line) # goto specified position start
-        ed.set_prop(PROP_LINE_TOP, max(0, targetrange.start.line-3))
+
+        # open file:  in embedded first
+        target_line = max(0, targetrange.start.line-3)
+        target_caret = (targetrange.start.character, targetrange.start.line)
+        try:
+            if reqpos:
+                nline = None
+                if reqpos.target_pos_caret:
+                    nline = reqpos.target_pos_caret[1]
+                elif reqpos.carets:
+                    nline = reqpos.carets[0][1]
+
+                scroll_to = (0, target_line)
+                caption = os.path.basename(targetpath)
+
+                if nline is not None:
+                    from cuda_embed_ed import open_file_embedded
+                    open_file_embedded(targetpath, nline,  caption=caption,  scroll_to=scroll_to,
+                                                                                carets=[target_caret])
+        except ImportError:
+            file_open(targetpath)
+            app_idle(True) # fixes editor not scrolled to caret
+            ed.set_caret(*target_caret) # goto specified position start
+            ed.set_prop(PROP_LINE_TOP, target_line)
 
     def request_sighelp(self, eddoc):
         id, pos = self._action_by_name(METHOD_SIG_HELP, eddoc)

@@ -179,6 +179,7 @@ class SignatureHelp(Event):
 
 
 class Definition(Event):
+    message_id: t.Optional[Id]
     result: t.Union[
         Location,
         t.List[t.Union[Location, LocationLink]],
@@ -186,12 +187,14 @@ class Definition(Event):
 
 # result is a list, so putting i a custom class
 class References(Event):
+    message_id: t.Optional[Id]
     result: t.Union[t.List[Location], None]
 
 class MCallHierarchItems(Event):
     result: t.Union[t.List[CallHierarchyItem], None]
 
 class Implementation(Event):
+    message_id: t.Optional[Id]
     result: t.Union[
         Location,
         t.List[t.Union[Location, LocationLink]],
@@ -205,12 +208,14 @@ class MDocumentSymbols(Event):
     result: t.Union[t.List[SymbolInformation], t.List[DocumentSymbol], None]
 
 class Declaration(Event):
+    message_id: t.Optional[Id]
     result: t.Union[
         Location,
         t.List[t.Union[Location, LocationLink]],
         None]
 
 class TypeDefinition(Event):
+    message_id: t.Optional[Id]
     result: t.Union[
         Location,
         t.List[t.Union[Location, LocationLink]],

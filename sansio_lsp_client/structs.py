@@ -421,28 +421,32 @@ class WorkspaceFolder(BaseModel):
     name: str
 
 
-
 class ProgressValue(BaseModel):
     pass
 
 class WorkDoneProgressValue(ProgressValue):
     pass
 
+class MWorkDoneProgressKind(enum.Enum):
+    BEGIN = 'begin'
+    REPORT = 'report'
+    END = 'end'
+
 class WorkDoneProgressBeginValue(WorkDoneProgressValue):
-    kind: str = 'begin'
+    kind: MWorkDoneProgressKind # BEGIN
     title: str
     cancellable: t.Optional[bool]
     message: t.Optional[str]
     percentage: t.Optional[int]
 
 class WorkDoneProgressReportValue(WorkDoneProgressValue):
-    kind: str = 'report'
+    kind: MWorkDoneProgressKind # REPORT
     cancellable: t.Optional[bool]
     message: t.Optional[str]
     percentage: t.Optional[int]
 
 class WorkDoneProgressEndValue(WorkDoneProgressValue):
-    kind: str = 'end'
+    kind: MWorkDoneProgressKind # END
     message: t.Optional[str]
 
 
