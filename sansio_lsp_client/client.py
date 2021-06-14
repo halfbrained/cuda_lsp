@@ -63,6 +63,7 @@ from .structs import (
     FormattingOptions,
     Range,
     WorkspaceFolder,
+    MWorkDoneProgressKind,
 )
 from .io_handler import _make_request, _parse_messages, _make_response
 
@@ -326,15 +327,20 @@ class Client:
         #GOTOs
         elif request.method == "textDocument/definition":
             event = parse_obj_as(Definition, response)
+            event.message_id = response.id
 
         elif request.method == "textDocument/references":
             event = parse_obj_as(References, response)
+            event.message_id = response.id
         elif request.method == "textDocument/implementation":
             event = parse_obj_as(Implementation, response)
+            event.message_id = response.id
         elif request.method == "textDocument/declaration":
             event = parse_obj_as(Declaration, response)
+            event.message_id = response.id
         elif request.method == "textDocument/typeDefinition":
             event = parse_obj_as(TypeDefinition, response)
+            event.message_id = response.id
 
         elif request.method == "textDocument/prepareCallHierarchy":
             event = parse_obj_as(MCallHierarchItems, response)
@@ -396,19 +402,22 @@ class Client:
             progress_type = self._progress_tokens_map.get(request.params['token'])
 
             if progress_type == WorkDoneProgress:
-                kind = request.params.get('value', {}).get('kind')
-                if kind == 'begin':
+                kind = request.params['value']['kind']
+                kind = MWorkDoneProgressKind(kind)
+
+                if kind == MWorkDoneProgressKind.BEGIN:
                     return parse_request(WorkDoneProgressBegin)
-                elif kind == 'report':
+                elif kind == MWorkDoneProgressKind.REPORT:
                     return parse_request(WorkDoneProgressReport)
-                elif kind == 'end':
+                elif kind == MWorkDoneProgressKind.END:
                     del self._progress_tokens_map[request.params["token"]]
                     return parse_request(WorkDoneProgressEnd)
 
         elif request.method == "client/registerCapability":
             return parse_request(RegisterCapabilityRequest)
 
-        raise NotImplementedError(request)
+        else:
+            raise NotImplementedError(request)
 
     def recv(self, data: bytes, errors: t.Optional[list] = None) -> t.List[Event]:
         self._recv_buf += data

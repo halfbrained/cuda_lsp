@@ -1,3 +1,6 @@
+2021.06.14
++ add: show request-result files in an embedded editor if plugin "Embedded Editor" is installed
+
 2021.05.27
 + add: option "format_on_save"
 + change: server message-exchange speedup
