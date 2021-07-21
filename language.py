@@ -56,6 +56,7 @@ from .sansio_lsp_client.structs import (
         MarkedString,
         FormattingOptions,
         WorkspaceFolder,
+        InsertTextFormat,
     )
 
 import traceback
