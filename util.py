@@ -1,6 +1,5 @@
 import os
 import pathlib
-from urllib.parse import unquote, urlparse
 
 import cudatext as ct
 
@@ -51,7 +50,13 @@ def ed_uri(ed):
         return 'untitled://'+ed.get_prop(ct.PROP_TAB_TITLE)
 
 def uri_to_path(uri):
-    return unquote(urlparse(uri).path)
+
+    # https://stackoverflow.com/a/61922504
+    # ~heavy import
+    from urllib.parse import urlparse
+    from urllib.request import url2pathname
+
+    return url2pathname(urlparse(uri).path)
 
 def collapse_path(path):
     if path  and  (path + os.sep).startswith(USER_DIR + os.sep):
