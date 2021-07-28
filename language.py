@@ -684,7 +684,7 @@ class Language:
                 ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
                 if ind is None:
                     return
-                uri,targetrange = targets[ind]
+                uri,targetrange = link_to_target(items[ind])
 
         else: # items is single item
             uri,targetrange = link_to_target(items)
