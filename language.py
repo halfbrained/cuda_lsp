@@ -675,7 +675,7 @@ class Language:
             targets = ((uri_to_path(uri),range_) for uri,range_ in targets) # uri to path
 
             if skip_dlg:
-                uri,targetrange = next(targets) # first
+                item = items[0] # first
             else:
                 targets = list(targets)
                 # ((dir,filename), line)
@@ -684,7 +684,9 @@ class Language:
                 ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
                 if ind is None:
                     return
-                uri,targetrange = link_to_target(items[ind])
+                item = items[ind]
+
+            uri,targetrange = link_to_target(item)
 
         else: # items is single item
             uri,targetrange = link_to_target(items)
