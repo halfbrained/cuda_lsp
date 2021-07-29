@@ -693,6 +693,10 @@ class Language:
 
         targetpath = uri_to_path(uri)
 
+        if not os.path.isfile(targetpath):
+            print('NOTE: ' + _('{}: {} - file does not exist: {!r}, uri:{!r}').format(
+                    LOG_NAME, self.lang_str, targetpath, uri))
+
         # open file:  in embedded first
         target_line = max(0, targetrange.start.line-3)
         target_caret = (targetrange.start.character, targetrange.start.line)
