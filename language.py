@@ -224,7 +224,7 @@ class Language:
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                print(_('NOTE: {}: {} - Failed to connect on port {}').format(
+                print('NOTE: ' + _('{}: {} - Failed to connect on port {}').format(
                       LOG_NAME, self.lang_str, self._tcp_port))
                 return
 
