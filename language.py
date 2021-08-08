@@ -224,7 +224,7 @@ class Language:
 
             self.sock = _connect_tcp(port=self._tcp_port)
             if self.sock is None:
-                print(_('NOTE: {}: {} - Failed to connect on port {}').format(
+                print('NOTE: ' + _('{}: {} - Failed to connect on port {}').format(
                       LOG_NAME, self.lang_str, self._tcp_port))
                 return
 
@@ -675,7 +675,7 @@ class Language:
             targets = ((uri_to_path(uri),range_) for uri,range_ in targets) # uri to path
 
             if skip_dlg:
-                uri,targetrange = next(targets) # first
+                item = items[0] # first
             else:
                 targets = list(targets)
                 # ((dir,filename), line)
@@ -684,12 +684,18 @@ class Language:
                 ind = dlg_menu(DMENU_LIST_ALT, names, caption=dlg_caption)
                 if ind is None:
                     return
-                uri,targetrange = targets[ind]
+                item = items[ind]
+
+            uri,targetrange = link_to_target(item)
 
         else: # items is single item
             uri,targetrange = link_to_target(items)
 
         targetpath = uri_to_path(uri)
+
+        if not os.path.isfile(targetpath):
+            print('NOTE: ' + _('{}: {} - file does not exist: {!r}, uri:{!r}').format(
+                    LOG_NAME, self.lang_str, targetpath, uri))
 
         # open file:  in embedded first
         target_line = max(0, targetrange.start.line-3)

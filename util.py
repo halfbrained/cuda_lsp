@@ -53,10 +53,11 @@ def uri_to_path(uri):
 
     # https://stackoverflow.com/a/61922504
     # ~heavy import
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, unquote
     from urllib.request import url2pathname
 
-    return url2pathname(urlparse(uri).path)
+    path = urlparse(uri).path
+    return url2pathname(unquote(path))
 
 def collapse_path(path):
     if path  and  (path + os.sep).startswith(USER_DIR + os.sep):
