@@ -1334,7 +1334,7 @@ class CompletionMan:
         if lex is None: return
         #if not is_lexer_allowed(lex): return
 
-        words = ['{}\t{}\t{}|{}'.format(item.label, item.kind.name.lower() or '', message_id, i)
+        words = ['{}\t{}\t{}|{}'.format(item.label, item.kind and item.kind.name.lower() or '', message_id, i)
                     for i,item in enumerate(items)]
 
         # results are already seem to be sorted by .sortText
