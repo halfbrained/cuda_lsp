@@ -299,12 +299,12 @@ class Language:
 
                 if header_bytes == b'':
                     pass;       LOG and print('NOTE: reader stopping')
-                    res = os.waitpid(-1, os.WNOHANG)
+                    res = os.waitpid(-1, os.WNOHANG if not IS_WIN else 0) # Alexey's fix
                     pass;       LOG and print(f'+ wait result: {res}')
                     break
 
                 try:
-                    body = self._reader.read(int(headers.get("Content-Length")))
+                    body = self._reader.read(int(headers.get("Content-Length", 10*1000))) # Alexey's fix
                     self._read_q.put(header_bytes + body)
                 except Exception as ex:
                     print(f'BodyReadError: {LOG_NAME}: {self.lang_str} - decode error {ex}')
