@@ -872,17 +872,17 @@ class Language:
         """
         if not self._server_cmd and not self._tcp_port:
             msg = f'no server-start-command for current OS ({CMD_OS_KEY}) or tcp_port specified'
-            raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
+            raise ValidationError(f'NOTE: {LOG_NAME}: server config error: "{self.name}" - {msg}')
 
         # check that 'env_paths' is dict of lists
         if self._env_paths:
             if not isinstance(self._env_paths, dict):
                 msg = '`env_paths` should be a `dictionary`'
-                raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
+                raise ValidationError(f'NOTE: {LOG_NAME}: server config error: "{self.name}" - {msg}')
             for paths in self._env_paths.values():
                 if not isinstance(paths, list):
                     msg = '`env_paths` values should be `lists`'
-                    raise ValidationError(f'NOTE: {LOG_NAME}: sever config error: "{self.name}" - {msg}')
+                    raise ValidationError(f'NOTE: {LOG_NAME}: server config error: "{self.name}" - {msg}')
 
 
     def _dbg_print_registrations(self):

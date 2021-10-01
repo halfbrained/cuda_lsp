@@ -765,7 +765,7 @@ class Command:
 
                 if not langids:
                     _path = collapse_path(path)
-                    print(f'NOTE: {LOG_NAME}: sever config error - no associated lexers: {_path}')
+                    print(f'NOTE: {LOG_NAME}: server config error - no associated lexers: {_path}')
                     continue
                 if 'name' not in j:
                     j['name'] = os.path.splitext(name)[0]
