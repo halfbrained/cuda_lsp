@@ -237,6 +237,13 @@ class Language:
 
             env = ServerConfig.prepare_env(self._env_paths)
 
+            startupinfo = None
+            if IS_WIN:
+                # Prevent cmd.exe window from popping up
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+
             try:
                 self.process = subprocess.Popen(
                     args=self._server_cmd,
@@ -245,6 +252,7 @@ class Language:
                     stderr=subprocess.PIPE,
                     cwd=self._work_dir,
                     env=env,
+                    startupinfo=startupinfo,
                 )
             except Exception as ex:
                 print(f'NOTE: {LOG_NAME}: {self.lang_str} - Failed to create process, command:'
