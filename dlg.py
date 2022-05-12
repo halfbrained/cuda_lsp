@@ -382,6 +382,12 @@ class PanelLog:
             self._colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         return self._colors
 
+    def memo_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
+        row = self._memo.get_carets()[0][1]
+        line= self._memo.get_text_line(row).split()[0]
+        target_caret = (0,int(line)-1)
+        ed.set_caret(*target_caret) # goto specified position start
+        ed.focus()
 
     def _init_panel(self):
         self.h_dlg = dlg_proc(0, DLG_CREATE)
@@ -395,6 +401,9 @@ class PanelLog:
             })
         h_memo = dlg_proc(self.h_dlg, DLG_CTL_HANDLE, index=n)
         self._memo = Editor(h_memo)
+        dlg_proc(self.h_dlg, DLG_CTL_PROP_SET, index=n, prop={
+            'on_click_dbl': self.memo_on_click_dbl,
+            } )
 
         # Top buttons #######
         n = dlg_proc(self.h_dlg, DLG_CTL_ADD, prop='statusbar')

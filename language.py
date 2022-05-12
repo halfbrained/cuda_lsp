@@ -1012,7 +1012,7 @@ class DiagnosticsMan:
                     code = str(d.code)  if d.code is not None else  ''
                     text = ''.join([pre, severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
-                    self.logger.log_str(text, type_="Errors", severity=SEVERITY_ERR)
+                    self.logger.log_str(f"{d.range.start.line+1} {text}", type_="Errors", severity=SEVERITY_ERR)
 
                 # gather err ranges
                 for d in diags:
