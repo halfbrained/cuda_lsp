@@ -1,6 +1,7 @@
 
-2022.05.10
-- fix: prevent cmd.exe console popping up on Windows
+2022.05.12
++ add: show LSP warnings/errors in the bottom log-panel of LSP plugin (by @veksha)
++ add: prevent cmd.exe console showing on Windows (by @veksha)
 
 2021.06.14
 + add: show request-result files in an embedded editor if plugin "Embedded Editor" is installed
