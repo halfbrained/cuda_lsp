@@ -146,7 +146,7 @@ class Language:
             )
 
         self.request_positions = {} # RequestPos
-        self.diagnostics_man = DiagnosticsMan(lintstr, underline_style)
+        self.diagnostics_man = DiagnosticsMan(lintstr, underline_style, self.plog)
         self.progresses = {} # token -> progress start message
 
         self._closed = False
@@ -937,7 +937,8 @@ class DiagnosticsMan:
     LINT_BOOKMARK = 101
     LINT_DECOR = 102
 
-    def __init__(self, lintstr=None, underline_style=2):
+    def __init__(self, lintstr=None, underline_style=2, logger=None):
+        self.logger=logger
         self.uri_diags = {} # uri -> diag?
         self.dirtys = set() # uri
 
@@ -975,6 +976,7 @@ class DiagnosticsMan:
                 self.dirtys.add(uri)
 
     def _apply_diagnostics(self, ed, diag_list):
+        self.logger.clear()
         if self._linttype  or  self._highlight_bg:
             self._clear_old(ed)
 
@@ -1010,6 +1012,7 @@ class DiagnosticsMan:
                     code = str(d.code)  if d.code is not None else  ''
                     text = ''.join([pre, severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
+                    self.logger.log_str(text, type_="Errors", severity=SEVERITY_ERR)
 
                 # gather err ranges
                 for d in diags:
