@@ -383,10 +383,19 @@ class PanelLog:
         return self._colors
 
     def memo_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
-        row = self._memo.get_carets()[0][1]
-        line= self._memo.get_text_line(row).split()[0]
-        target_caret = (0,int(line)-1)
-        ed.set_caret(*target_caret) # goto specified position start
+        y = self._memo.get_carets()[0][1]
+        text = self._memo.get_text_line(y)
+        if not text.startswith('['): return
+        n = text.find('] ')
+        if n<0: return
+        text = text[1:n]
+        n = text.rfind(':')
+        if n<0: return
+        fn = text[:n]
+        line = text[n+1:]
+        if not os.path.isfile(fn): return
+        file_open(fn)
+        ed.set_caret(0, int(line)-1)
         ed.focus()
 
     def _init_panel(self):
