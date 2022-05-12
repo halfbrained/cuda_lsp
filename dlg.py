@@ -383,6 +383,14 @@ class PanelLog:
         return self._colors
 
     def memo_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
+        
+        def find_filename_by_short_name(shortname):
+            for h in ed_handles():
+                e = Editor(h)
+                fn = e.get_filename()
+                if fn and os.path.basename(fn)==shortname:
+                    return fn
+
         y = self._memo.get_carets()[0][1]
         text = self._memo.get_text_line(y)
         if not text.startswith('['): return
@@ -393,7 +401,8 @@ class PanelLog:
         if n<0: return
         fn = text[:n]
         line = text[n+1:]
-        if not os.path.isfile(fn): return
+        fn = find_filename_by_short_name(fn)
+        if not fn: return
         file_open(fn)
         ed.set_caret(0, int(line)-1)
         ed.focus()
