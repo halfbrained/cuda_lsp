@@ -1,3 +1,7 @@
+
+2022.05.10
+- fix: prevent cmd.exe console popping up on Windows
+
 2021.06.14
 + add: show request-result files in an embedded editor if plugin "Embedded Editor" is installed
 
