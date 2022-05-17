@@ -191,6 +191,7 @@ class Client:
         root_uri: t.Optional[str] = None,
         workspace_folders: t.Optional[t.List[WorkspaceFolder]] = None,
         trace: str = "off",
+        settings = {},
     ) -> None:
         self._state = ClientState.NOT_INITIALIZED
 
@@ -229,6 +230,9 @@ class Client:
             },
         )
         self._state = ClientState.WAITING_FOR_INITIALIZED
+
+        # prepare configuration for sending via "workspace/didChangeConfiguration"
+        self.settings = settings
 
     @property
     def state(self) -> ClientState:
@@ -277,6 +281,9 @@ class Client:
         if request.method == "initialize":
             assert self._state == ClientState.WAITING_FOR_INITIALIZED
             self._send_notification("initialized", params={}) # 'gopls' doesnt recognise 'None' 'params'
+            self._send_notification("workspace/didChangeConfiguration", params={
+                "settings": self.settings
+            })
             event = Initialized.parse_obj(response.result)
             self._state = ClientState.NORMAL
 
