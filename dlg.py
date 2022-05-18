@@ -384,17 +384,23 @@ class PanelLog:
 
     def memo_on_click_dbl(self, id_dlg, id_ctl, data='', info=''):
         y = self._memo.get_carets()[0][1]
+        lines = self._memo.get_text_all().splitlines()
+
+        fn = ''
+        for i in reversed(range(y)):
+            line = lines[i]
+            if line.startswith('File: '):
+                fn = line[6:]
+                break
+        if not fn: return
+
         text = self._memo.get_text_line(y)
-        if not text.startswith('['): return
-        n = text.find('] ')
+        if not text.startswith('Line '): return
+        n = text.find(': ')
         if n<0: return
-        text = text[1:n]
-        n = text.rfind(':')
-        if n<0: return
-        fn = text[:n]
-        line = text[n+1:]
+        line = int(text[5:n])-1
         file_open(fn)
-        ed.set_caret(0, int(line)-1)
+        ed.set_caret(0, line)
         ed.focus()
 
     def _init_panel(self):

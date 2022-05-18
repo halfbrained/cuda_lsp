@@ -991,6 +991,9 @@ class DiagnosticsMan:
             # get dict of lines for gutter
             line_diags = self._get_gutter_data(diag_list)
 
+            fn = ed.get_filename()
+            self.logger.log_str(f"File: {fn}", type_="Errors", severity=SEVERITY_ERR)
+
             err_ranges = []  # tuple(x,y,len)
             # apply gutter to editor
             for nline,diags in line_diags.items():
@@ -1013,8 +1016,7 @@ class DiagnosticsMan:
                     code = str(d.code)  if d.code is not None else  ''
                     text = ''.join([pre, severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
-                    filename = ed.get_filename()
-                    self.logger.log_str(f"[{filename}:{d.range.start.line+1}] {text}", type_="Errors", severity=SEVERITY_ERR)
+                    self.logger.log_str(f"Line {d.range.start.line+1}: {text}", type_="Errors", severity=SEVERITY_ERR)
 
                 # gather err ranges
                 for d in diags:
