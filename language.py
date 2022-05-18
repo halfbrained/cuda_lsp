@@ -1012,7 +1012,7 @@ class DiagnosticsMan:
                     code = str(d.code)  if d.code is not None else  ''
                     text = ''.join([pre, severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
-                    filename = os.path.basename(ed.get_filename())
+                    filename = ed.get_filename()
                     self.logger.log_str(f"[{filename}:{d.range.start.line+1}] {text}", type_="Errors", severity=SEVERITY_ERR)
 
                 # gather err ranges
