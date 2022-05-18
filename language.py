@@ -175,6 +175,7 @@ class Language:
                 root_uri=root_uri,
                 workspace_folders=self.workspace_folders,
                 process_id=os.getpid(),
+                settings=self._cfg["settings"]
             )
             self._start_server()
         return self._client
