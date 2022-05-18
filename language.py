@@ -31,7 +31,7 @@ from .util import (
 
         ValidationError,
     )
-from .dlg import Hint
+from .dlg import Hint, SEVERITY_MAP
 from .dlg import PanelLog, SEVERITY_ERR
 from .book import EditorDoc
 #from .tree import TreeMan  # imported on access
@@ -1016,7 +1016,8 @@ class DiagnosticsMan:
                     code = str(d.code)  if d.code is not None else  ''
                     text = ''.join([pre, severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
-                    self.logger.log_str(f"Line {d.range.start.line+1}: {text}", type_="Errors", severity=SEVERITY_ERR)
+                    self.logger.log_str(f"Line {d.range.start.line+1}: {text}",
+                                        type_="Errors", severity=SEVERITY_MAP[d.severity])
 
                 # gather err ranges
                 for d in diags:
