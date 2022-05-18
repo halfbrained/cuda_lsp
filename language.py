@@ -32,7 +32,7 @@ from .util import (
         ValidationError,
     )
 from .dlg import Hint, SEVERITY_MAP
-from .dlg import PanelLog, SEVERITY_ERR
+from .dlg import PanelLog, SEVERITY_ERR, SEVERITY_LOG
 from .book import EditorDoc
 #from .tree import TreeMan  # imported on access
 
@@ -992,7 +992,7 @@ class DiagnosticsMan:
             line_diags = self._get_gutter_data(diag_list)
 
             fn = ed.get_filename()
-            self.logger.log_str(f"File: {fn}", type_="Errors", severity=SEVERITY_ERR)
+            self.logger.log_str(f"File: {fn}", type_="Logs", severity=SEVERITY_LOG)
 
             err_ranges = []  # tuple(x,y,len)
             # apply gutter to editor
