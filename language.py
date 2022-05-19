@@ -1016,7 +1016,8 @@ class DiagnosticsMan:
                     severity_short = d.severity.short_name() if d.severity else ''
                     # "[severity:code] message"
                     code = str(d.code)  if d.code is not None else  ''
-                    text = ''.join([pre, severity_short, mid, code, post, d.message])
+                    source = str(d.source)  if d.source is not None else  ''
+                    text = ''.join([pre, source, ',',severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
                     
                     if not filename_added:
