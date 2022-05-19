@@ -206,7 +206,7 @@ class CompletionItemTag(enum.IntEnum):
 class CompletionItem(BaseModel):
     label: str
     kind: t.Optional[CompletionItemKind]
-    tags: t.Optional[CompletionItemTag]
+    tags: t.Optional[t.List[CompletionItemTag]]
     detail: t.Optional[str] # human string, line symbol info -- None in C#
     documentation: t.Union[str, MarkupContent, None]
     deprecated: t.Optional[bool] # is deprecated
