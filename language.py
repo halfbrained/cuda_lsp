@@ -106,6 +106,7 @@ class Language:
     def __init__(self, cfg, cmds=None, lintstr='', underline_style=None, state=None):
         self._shutting_down = None  # scheduled shutdown when not yet initialized
 
+        self._last_complete = None
         self._cfg = cfg
         self._caret_cmds = cmds # {caption -> callable}
 
@@ -650,9 +651,12 @@ class Language:
             return True
 
     def on_snippet(self, ed_self, snippet_id, snippet_text): # completion callback
-        if snippet_id == SNIP_ID:
+        if snippet_id == SNIP_ID and self._last_complete:
             compl, message_id, items = self._last_complete
             compl.do_complete(message_id, snippet_text, items)
+            self._last_complete = None
+            return True
+        return False
 
 
     def on_hover(self, eddoc, caret):

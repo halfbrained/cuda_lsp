@@ -376,7 +376,8 @@ class Command:
         """ for Editor.complete_alt()
         """
         for lang in self._langs.values():
-            lang.on_snippet(ed_self, snippet_id, snippet_text)
+            if lang.on_snippet(ed_self, snippet_id, snippet_text):
+                break
 
     def on_mouse_stop(self, ed_self, x, y):
         if not opt_enable_mouse_hover:      return
