@@ -1,10 +1,11 @@
 
-2022.05.19
-- fix: bug when e.g. "log()" completion is JS was shown twice: console.log(log()) (by @veksha)
+2022.05.19 (by @veksha)
++ add: implement filtering of completion-list by current word, for servers which don't do it
+- fix: bug when e.g. "log()" completion is JS was shown twice: console.log(log())
 
-2022.05.12
-+ add: show LSP warnings/errors in the bottom log-panel of LSP plugin (by @veksha)
-+ add: prevent cmd.exe console showing on Windows (by @veksha)
+2022.05.12 (by @veksha)
++ add: show LSP warnings/errors in the bottom log-panel of LSP plugin
++ add: prevent cmd.exe console showing on Windows
 
 2021.06.14
 + add: show request-result files in an embedded editor if plugin "Embedded Editor" is installed
