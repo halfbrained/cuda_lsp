@@ -1,4 +1,7 @@
 
+2022.05.19
+- fix: bug when e.g. "log()" completion is JS was shown twice: console.log(log()) (by @veksha)
+
 2022.05.12
 + add: show LSP warnings/errors in the bottom log-panel of LSP plugin (by @veksha)
 + add: prevent cmd.exe console showing on Windows (by @veksha)
