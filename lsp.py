@@ -534,7 +534,8 @@ class Command:
                                 state=STATE.get(cfg.get('name'))
                         )
                     except ValidationError:
-                        servers_cfgs.remove(cfg) # dont nag on every on_open
+                        if cfg in servers_cfgs:
+                            servers_cfgs.remove(cfg) # dont nag on every on_open
                         raise
                     pass;       LOG and print(f'*** Created lang({lang.name}) for {ed_self, langid}')
                     # register server to all its supported langids
