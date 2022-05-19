@@ -412,8 +412,7 @@ class Language:
             if items:
                 if reqpos:
                     compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                    compl.show_complete(msg.message_id, items)
-                    self._last_complete = (compl, msg.message_id, items)
+                    self._last_complete = compl.show_complete(msg.message_id, items)
             else:
                 msg_status(f'{LOG_NAME}: {self.lang_str}: Completion - no info')
 
@@ -1356,6 +1355,22 @@ class CompletionMan:
 
         if lex is None: return
         #if not is_lexer_allowed(lex): return
+        
+        _carets = ed.get_carets()
+        x0,y0, _x1,_y1 = _carets[0]
+
+        lex = ed.get_prop(PROP_LEXER_FILE, '')
+        self._nonwords = appx.get_opt(
+            'nonword_chars',
+            '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
+            appx.CONFIG_LEV_ALL,
+            ed,
+            lex)
+
+        word = self._get_word(x0, y0)
+        if word:
+            word1, _ = word
+            items = list(filter(lambda i: word1 in i.label, items))
 
         words = ['{}\t{}\t{}|{}'.format(item.label, item.kind and item.kind.name.lower() or '', message_id, i)
                     for i,item in enumerate(items)]
@@ -1366,6 +1381,7 @@ class CompletionMan:
         sel = sel or 0
 
         ed.complete_alt('\n'.join(words), SNIP_ID, len_chars=0, selected=sel)
+        return (self, message_id, items)
 
     #TODO add () and move caret if function?
     def do_complete(self, message_id, snippet_text, items):
