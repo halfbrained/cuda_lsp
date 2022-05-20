@@ -18,7 +18,7 @@ events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
 section=events
 events=on_key
 ; handle only Escape key
-key=27
+keys=27
 
 [item5]
 section=events
