@@ -12,10 +12,13 @@ events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state
 
 [item3]
 section=events
-events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
+events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint,on_goto_def,on_focus
+
 [item4]
 section=events
-events=on_goto_def,on_focus
+events=on_key
+; handle only Escape key
+key=27
 
 [item5]
 section=events

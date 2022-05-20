@@ -457,6 +457,14 @@ class Command:
             PanelLog.on_theme_change()
 
 
+    def on_key(self, ed_self, key, state):
+        # VK_ESCAPE==27
+        if key==27 and 'c' not in state and 's' not in state and 'a' not in state:
+            if Hint.is_visible():
+                Hint.hide()
+                return False
+
+
     def on_exit(self, *args, **vargs):
         #### save state before exiting
         state_changed = False
