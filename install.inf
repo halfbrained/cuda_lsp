@@ -8,7 +8,7 @@ api=1.0.392
 
 [item2]
 section=events
-events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state
+events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state,on_exit
 
 [item3]
 section=events
@@ -19,11 +19,6 @@ section=events
 events=on_key
 ; handle only Escape key
 keys=27
-
-[item5]
-section=events
-events=on_exit
-
 
 [item21]
 section=commands
