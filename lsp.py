@@ -32,6 +32,7 @@ from .util import (
 
 LOG = False
 LOG_NAME = 'LSP'
+IS_WIN = os.name=='nt'
 SERVER_RESPONSE_DIALOG_LEN = 80
 
 # considering all 'lsp_*.json' - server configs
@@ -500,10 +501,11 @@ class Command:
             if time.time() - _start > SEVERS_SHUTDOWN_MAX_TIME:
                 break
 
-        try:
-            os.waitpid(-1, os.WNOHANG) # -1 -- any child
-        except ChildProcessError:
-            pass
+        if not IS_WIN:
+            try:
+                os.waitpid(-1, os.WNOHANG) # -1 -- any child
+            except ChildProcessError:
+                pass
 
 
     def _get_lang(self, ed_self, langid):
