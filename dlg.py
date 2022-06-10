@@ -114,7 +114,9 @@ class Hint:
     # language - from deprecated 'MarkedString'
     @classmethod
     def show(cls, text, caret, cursor_loc_start, markupkind=None, language=None, caret_cmds=None):
-        import html
+
+        if not ed.get_prop(PROP_FOCUSED):
+            return # show Hint only if editor is focused (and not autocompletion dialog)
 
         if not text:
             return
@@ -140,6 +142,7 @@ class Hint:
         try:
             if markupkind == MarkupKind.MARKDOWN:
                 cls.ed.set_prop(PROP_LEXER_FILE, 'Markdown')
+                import html
                 text = html.unescape(text)
                 text = cls.unescape_bslash(text)
             else:
@@ -236,7 +239,9 @@ class Hint:
     @classmethod
     def hide_check_timer(cls, tag='', info=''):
         # hide if not over dialog  and  cursor moved at least ~15px
-        if not is_mouse_in_form(cls.h)  and  cursor_dist(cls.cursor_pos) > cls.cursor_margin:
+        if not cls.is_visible(): #stop the timer if dialog was already closed (could be closed by autocompletion)
+            timer_proc(TIMER_STOP, Hint.hide_check_timer, 250, tag='')
+        elif not is_mouse_in_form(cls.h) and cursor_dist(cls.cursor_pos) > cls.cursor_margin:
             timer_proc(TIMER_STOP, Hint.hide_check_timer, 250, tag='')
 
             cls.hide()

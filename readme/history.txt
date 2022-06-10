@@ -1,3 +1,5 @@
+2022.06.09
+- fix: hover hint dialog and autocompletion dialog could show up at the same time causing various bugs (by @veksha)
 
 2022.05.20
 + add: Escape-key in Hover dialog closes the dialog (by Alexey T.)
