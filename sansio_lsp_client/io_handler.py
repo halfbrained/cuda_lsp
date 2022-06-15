@@ -60,6 +60,14 @@ def _make_response(
         content["result"] = result
     if error is not None:
         content["error"] = error
+    elif result is None:
+        content["result"] = None # "result": null
+
+     #                    content["result"]
+	 # The result of a request. This member is REQUIRED on success.
+	 # This member MUST NOT exist if there was an error invoking the method.
+	 #
+
     encoded_content = json.dumps(content).encode(encoding)
 
     # Write the headers to the request body
