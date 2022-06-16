@@ -1,6 +1,6 @@
 2022.06.16
 + add: if lsp_xxx.json contains both "cmd_xxx" and "tcp_port", plugin runs the server and then listens to TCP port (by @veksha)
-- fix: support partial working of PHP LSP server (autocompletion still don't work) (by @veksha)
+- fix: bug which prevented work of PHP LSP server (by @veksha)
 
 2022.06.09
 - fix: hover hint dialog and autocompletion dialog could show up at the same time causing various bugs (by @veksha)
