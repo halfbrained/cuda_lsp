@@ -219,8 +219,8 @@ class Language:
 
 
     def _start_server(self):
-        # if config has tcp port - connetct to it
-        if self._tcp_port and type(self._tcp_port) == int:
+
+        def connect_via_tcp():
             print(_('{}: {} - connecting via TCP, port: {}').format(
                   LOG_NAME, self.lang_str, self._tcp_port))
 
@@ -232,8 +232,8 @@ class Language:
 
             self._reader = self.sock.makefile('rwb')  # type: ignore
             self._writer = self._reader
-        # not port - create stdio-process
-        else:
+
+        def connect_via_stdin():
             print(_('{}: starting server - {}; root: {}').format(
                   LOG_NAME, self.lang_str, self._work_dir))
 
@@ -264,6 +264,13 @@ class Language:
             self._reader = self.process.stdout
             self._writer = self.process.stdin
             self._err = self.process.stderr
+
+        # if config has tcp port - connect to it
+        if self._tcp_port and type(self._tcp_port) == int:
+            connect_via_tcp()
+        # not port - create stdio-process
+        else:
+            connect_via_stdin()
 
         self.reader_thread = Thread(target=self._read_loop, name=self.name+'-reader', daemon=True)
         self.writer_thread = Thread(target=self._send_loop, name=self.name+'-writer', daemon=True)
@@ -1019,7 +1026,7 @@ class DiagnosticsMan:
                     source = str(d.source)  if d.source is not None else  ''
                     text = ''.join([pre, source, ',',severity_short, mid, code, post, d.message])
                     msg_lines.append(text)
-                    
+
                     if not filename_added:
                         filename_added = True
                         fn = ed.get_filename()
@@ -1356,7 +1363,7 @@ class CompletionMan:
 
         if lex is None: return
         #if not is_lexer_allowed(lex): return
-        
+
         _carets = ed.get_carets()
         x0,y0, _x1,_y1 = _carets[0]
 
