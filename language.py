@@ -267,6 +267,8 @@ class Language:
 
         # if config has tcp port - connect to it
         if self._tcp_port and type(self._tcp_port) == int:
+            if self._server_cmd:
+                connect_via_stdin()
             connect_via_tcp()
         # not port - create stdio-process
         else:
