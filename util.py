@@ -2,10 +2,12 @@ import os
 import pathlib
 
 import cudatext as ct
+import cudax_lib as appx
 
 from .dlg import Hint
 
 USER_DIR = os.path.expanduser('~')
+_nonwords = None
 
 def get_first(gen):
     try:
@@ -36,6 +38,44 @@ def get_visible_eds():
         ed = ct.ed_group(i)
         if ed:
             yield ed
+
+def get_word(x, y):
+    ed = ct.ed
+    if not 0<=y<ed.get_line_count():
+        return
+    s = ed.get_text_line(y)
+    if not 0<x<=len(s):
+        return
+
+    x0 = x
+    while (x0>0) and _isword(s[x0-1]):
+        x0-=1
+    text1 = s[x0:x]
+
+    x0 = x
+    while (x0<len(s)) and _isword(s[x0]):
+        x0+=1
+    text2 = s[x:x0]
+
+    return (text1, text2)
+
+def get_nonwords_chars():
+    global _nonwords
+    if _nonwords is None:
+        ed = ct.ed
+        lex = ed.get_prop(ct.PROP_LEXER_FILE, '')
+        _nonwords = appx.get_opt(
+            'nonword_chars',
+            '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
+            appx.CONFIG_LEV_ALL,
+            ed,
+            lex)
+    return _nonwords
+
+def _isword(s):
+    nonwords = get_nonwords_chars()
+     
+    return s not in ' \t'+nonwords
 
 
 def path_to_uri(path):

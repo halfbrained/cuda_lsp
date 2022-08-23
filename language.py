@@ -22,6 +22,8 @@ from .util import (
         get_first,
         ed_uri,
         get_visible_eds,
+        get_word,
+        get_nonwords_chars,
         uri_to_path,
         path_to_uri,
         langid2lex,
@@ -80,7 +82,7 @@ SNIP_ID = 'cuda_lsp__snip'
 TCP_CONNECT_TIMEOUT = 5     # sec
 MAX_FORMAT_ON_SAVE_WAIT = 1 # sec
 MIN_TIMER_TIME = 10     # ms
-MAX_TIMER_TIME = 250    # ms
+MAX_TIMER_TIME = 10    # ms
 
 GOTO_EVENT_TYPES = {
     events.Definition,
@@ -97,6 +99,7 @@ CALLABLE_COMPLETIONS = {
 }
 
 RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
+CachedCompletion = namedtuple('CachedCompletion', 'obj message_id items filtered_items carets h_ed line_str is_incomplete')
 
 GOTO_TITLES = {
     events.Definition:      _('Go to: definition'),
@@ -427,13 +430,15 @@ class Language:
 
         elif msgtype == events.Completion:
             items = msg.completion_list.items
+            #print('msg.completion_list.isIncomplete:',msg.completion_list.isIncomplete)
             pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
             reqpos = self.request_positions.pop(msg.message_id, None)
             if items:
                 if reqpos:
                     try:
                         compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                        self._last_complete = compl.show_complete(msg.message_id, items)
+                        #print("using fresh results.","items:",len(items)," incomplete:",msg.completion_list.isIncomplete)
+                        self._last_complete = compl.show_complete(msg.message_id, items, msg.completion_list.isIncomplete)
                     except AssertionError as e:
                         print("NOTE:",e)
             else:
@@ -678,17 +683,60 @@ class Language:
 
 
     def on_complete(self, eddoc):
+        on_complete_kind = app_proc(PROC_GET_AUTOCOMPLETION_INVOKE, 0)
+        
+        # try to complete from cached data (_last_complete)
+        if on_complete_kind != 'c' and self._last_complete and not self._last_complete.is_incomplete:
+            _, message_id, items, filtered_items, carets, _, line_prev, is_incomplete = self._last_complete
+            x1,y1, _,_ = ed.get_carets()[0]
+            x2,y2, _,_ = carets[0]
+            
+            # check if left side of line was not changed
+            line_current = ed.get_text_line(y2, max_len=1000)[:x2]
+            
+            #print(line_prev.strip())
+            if line_prev.strip() == line_current.strip():
+                word = get_word(x1, y1)
+                if word:
+                    word1part, word2part = word
+                else:
+                    word1part = word2part = ''
+                word_len = len(word1part) + len(word2part)
+                
+                filtered_items = list(filter(lambda i: word1part in i.label, filtered_items))
+                
+                if filtered_items: # if cache has word then continue, else - send request
+                    text_between_last_pos = ed.get_text_substr(x1,y1,x2,y2).strip()
+                    if text_between_last_pos == '':
+                        text_between_last_pos = ed.get_text_substr(x2,y2,x1,y1).strip()
+                        
+                    whitespace_walk = text_between_last_pos == ''
+                    if (whitespace_walk and word_len == 0):
+                        #print("using cache! (whitespace_walk)")
+                        compl = CompletionMan(carets)
+                        self._last_complete = compl.show_complete(message_id, items, self._last_complete.is_incomplete)
+                        return True
+                    
+                    crossed_word_boundary = any(char in text_between_last_pos for char in get_nonwords_chars())
+                    #print("x1/x2",x1,x2)
+                    if not crossed_word_boundary and (y1 == y2) and (x1 >= x2) and (x1 <= x2 + word_len):
+                        #print("using cache!")
+                        compl = CompletionMan(carets)
+                        self._last_complete = compl.show_complete(message_id, items, self._last_complete.is_incomplete)
+                        return True
+    
+        # cache can't be used -> request data from server
         id, pos = self._action_by_name(METHOD_COMPLETION, eddoc)
+        #print('pos',pos)
         if id is not None:
             self._save_req_pos(id=id)
             return True
 
     def on_snippet(self, ed_self, snippet_id, snippet_text): # completion callback
         if snippet_id == SNIP_ID and self._last_complete:
-            compl, message_id, items = self._last_complete
-            compl.do_complete(message_id, snippet_text, items)
-            self._last_complete = None
-            return True
+            compl, message_id, items, filtered_items, _, h_ed, _, is_incomplete = self._last_complete
+            if h_ed == ed.get_prop(PROP_HANDLE_SELF):
+                return compl.do_complete(message_id, snippet_text, filtered_items)
         return False
 
 
@@ -914,7 +962,17 @@ class Language:
         """ save request's caret position, and active editor -- to check if proper editor
         """
         h = ed.get_prop(PROP_HANDLE_SELF)
-        carets = ed.get_carets()
+        
+        # save word's start position
+        x1, y1, _x2, _y2 = ed.get_carets()[0]
+        
+        ## change x to the beginning of the word
+        #word = get_word(x1, y1)
+        #if word and len(word[0]) != 0:
+            #x1 = x1 - len(word[0])
+        
+        carets = [(x1,y1,_x2,_y2)]
+        
         _cursor = app_proc(PROC_GET_MOUSE_POS, '') # screen coords
         cursor_ed = ed.convert(CONVERT_SCREEN_TO_LOCAL, *_cursor)
         _req = RequestPos(h,  carets=carets,  target_pos_caret=target_pos_caret,  cursor_ed=cursor_ed)
@@ -1387,12 +1445,19 @@ class CompletionMan:
 
         self.carets = carets
         self.h_ed = h_ed or ed.get_prop(PROP_HANDLE_SELF)
+        
+        x,y, _,_ = carets[0]
+        self.line_str = ed.get_text_line(y,max_len=1000)[:x]
+        #print('self.line_str=',self.line_str)
 
-    def show_complete(self, message_id, items):
-
-        carets = ed.get_carets()
-
-        if self.carets != carets:       return # caret moved
+    def filter_startswith(self, item, word):
+        if item.filterText:
+            return item.filterText.startswith(word)
+        else:
+            return item.label.startswith(word)
+    
+    def show_complete(self, message_id, items, is_incomplete):
+        
         if self.h_ed != ed.get_prop(PROP_HANDLE_SELF):       return # wrong editor
 
         lex = ed.get_prop(PROP_LEXER_FILE, '')    #NOTE probably no need to check for lexer
@@ -1402,30 +1467,59 @@ class CompletionMan:
 
         _carets = ed.get_carets()
         x0,y0, _x1,_y1 = _carets[0]
-
-        lex = ed.get_prop(PROP_LEXER_FILE, '')
-        self._nonwords = appx.get_opt(
-            'nonword_chars',
-            '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
-            appx.CONFIG_LEV_ALL,
-            ed,
-            lex)
-
-        word = self._get_word(x0, y0)
+        
+        #line_current = ed.get_text_line(y0, max_len=1000).strip()
+        word = get_word(x0, y0)
         if word:
-            word1, _ = word
-            items = list(filter(lambda i: word1 in i.label, items))
+            word1, word2 = word
+            
+            #if self.carets != [(x0-len(word1), y0, _x1, _y1)] and line_current!='':      return # caret moved
+            
+            #filtered_items = items
+            filtered_items = list(filter(lambda i: word1.lower() in i.label.lower(), items))
+            
+            #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
+            
+            filtered_items = sorted(filtered_items,
+                                    key=lambda i:
+                                        (
+                                        i.label == word1,
+                                        word1 in i.label,
+                                        i.label.lower() == word1.lower(),
+                                        i.label.startswith(word1),
+                                        i.label.lower().startswith(word1.lower())
+                                        ),
+                                    reverse=True,
+                                    )
+            if len(word1) == 0 and len(word2) > 0: # we are at the start of the word
+                # update cached caret (so it points to the start of the word)
+                self.carets = [(x0,y0,_x1,_y1)]
+                
+            #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
+        else:
+            #if self.carets != _carets and line_current!='':      return # caret moved
+            filtered_items = items
+
+        #filtered_items = sorted(items, key=lambda i: i.sortText or i.label)
+        #print(">>> items[0]:", items[0])
 
         words = ['{}\t{}\t{}|{}'.format(item.label, item.kind and item.kind.name.lower() or '', message_id, i)
-                    for i,item in enumerate(items)]
+                    for i,item in enumerate(filtered_items)]
 
         # results are already seem to be sorted by .sortText
 
-        sel = get_first(i for i,item in enumerate(items)  if item.preselect is True)
+        sel = get_first(i for i,item in enumerate(filtered_items)  if item.preselect is True)
         sel = sel or 0
 
         ed.complete_alt('\n'.join(words), SNIP_ID, len_chars=0, selected=sel)
-        return (self, message_id, items)
+        
+        #if True:
+        #if is_incomplete:
+            #print("isIncomplete: ", is_incomplete)
+            #return None
+        #else:
+            #print("isIncomplete: ", is_incomplete, ", caching")
+        return CachedCompletion(self, message_id, items, filtered_items, self.carets, self.h_ed, self.line_str, is_incomplete)
 
     #TODO add () and move caret if function?
     def do_complete(self, message_id, snippet_text, items):
@@ -1458,7 +1552,8 @@ class CompletionMan:
             if item.textEdit:
                 text = item.textEdit.newText
                 snippet = Snippet(text=text.split('\n'))
-                x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+                # ignore `item.textEdit.range` for now because it may be cached (old and wrong) #1
+                #x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
                 ed.delete(x1,y1,x2,y2) # delete range
                 snippet.insert(ed)
                 #print("NOTE: Cuda_LSP: snippet was inserted:",text)
@@ -1473,7 +1568,8 @@ class CompletionMan:
         else: # InsertTextFormat.PLAIN_TEXT
             # find position of main edit and new 'text'
             if item.textEdit:
-                x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+                # ignore `item.textEdit.range` for now because it may be cached (old and wrong) #2
+                #x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
                 text = item.textEdit.newText
             else: # no textEdit, just using .label
                 if not item.insertText:
@@ -1502,6 +1598,7 @@ class CompletionMan:
         if item.additionalTextEdits:
             for edit in item.additionalTextEdits:
                 EditorDoc.apply_edit(ed, edit)
+        return True
 
 
     def _get_word(self, x, y):
