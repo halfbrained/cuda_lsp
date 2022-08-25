@@ -66,6 +66,8 @@ LOG = False
 DBG = LOG
 LOG_NAME = 'LSP'
 
+api_ver = app_api_version()
+
 IS_WIN = os.name=='nt'
 IS_MAC = sys.platform=='darwin'
 CMD_OS_KEY = 'cmd_windows' if IS_WIN else ('cmd_macos' if IS_MAC else 'cmd_unix')
@@ -1055,7 +1057,8 @@ class DiagnosticsMan:
                 if self._linttype == DiagnosticsMan.LINT_DECOR:
                     if decor_severity == 9:
                         decor_severity = DIAG_DEFAULT_SEVERITY
-                    ed.decor(DECOR_SET, line=nline, image=decor_im_map[decor_severity])
+                    tooltip = chr(1)+text if api_ver >= '1.0.427' else ''
+                    ed.decor(DECOR_SET, line=nline, image=decor_im_map[decor_severity], text=tooltip)
                 else:
                     text = '\n'.join(msg_lines)
                     ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text=text, tag=DIAG_BM_TAG)
