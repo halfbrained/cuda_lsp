@@ -1,3 +1,7 @@
+
+2022.08.25
++ add: use new CudaText API to show tooltips for guttter icons, when "lint_type" option is set to "d" (by @veksha)
+
 2022.06.16
 + add: if lsp_xxx.json contains both "cmd_xxx" and "tcp_port", plugin runs the server and then listens to TCP port (by @veksha)
 - fix: bug which prevented work of PHP LSP server (by @veksha)
