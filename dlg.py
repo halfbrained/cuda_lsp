@@ -727,7 +727,14 @@ class PanelLog:
         return cls.panels[panel_name]
 
 class SignaturesDialog:
-    def __init__(self, text):
+    def __init__(self, signatures):
+        
+        signatures, activeSignature, activeParameter = signatures
+        
+        #print(signatures)
+        print('activeSignature',activeSignature)
+        print('activeParameter',activeParameter)
+        
         idd=dlg_proc(0, DLG_CREATE)
         print('new dialog',self)
         self.idd = idd
@@ -748,13 +755,14 @@ class SignaturesDialog:
         self.memo.set_prop(PROP_THEMED, False)
         self.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, 0))
         self.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, apx.html_color_to_int('ffffe1')))
-        self.memo.set_text_all(text)
+
+        max_line_len = 10
+        for i,sig in enumerate(signatures):
+            max_line_len = max(max_line_len, len(sig.label))
+            self.memo.set_text_line(-2, sig.label)
 
         spacing = 2
         cell_x, cell_y = self.memo.get_prop(PROP_CELL_SIZE, 0)
-        max_line_len = 10
-        for line in text.splitlines():
-            max_line_len = max(max_line_len, len(line))
         dlg_height = (self.memo.get_line_count()) * cell_y + (spacing*2)
         dlg_width = max_line_len * cell_x + (spacing*2)
 
