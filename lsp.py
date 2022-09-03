@@ -465,6 +465,8 @@ class Command:
                 Hint.hide()
                 return False
 
+    def on_caret_slow(self, ed_self):
+        pass
 
     def on_exit(self, *args, **vargs):
         #### save state before exiting

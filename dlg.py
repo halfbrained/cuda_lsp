@@ -726,3 +726,56 @@ class PanelLog:
 
         return cls.panels[panel_name]
 
+class SignaturesDialog:
+    def __init__(self, text):
+        idd=dlg_proc(0, DLG_CREATE)
+        print('new dialog',self)
+        self.idd = idd
+
+        idc=dlg_proc(idd, DLG_CTL_ADD,'editor');
+        self.memo = Editor(dlg_proc(idd, DLG_CTL_HANDLE, index=idc))
+        self.memo.set_prop(PROP_GUTTER_NUM, False)
+        self.memo.set_prop(PROP_GUTTER_STATES, False)
+        self.memo.set_prop(PROP_GUTTER_FOLD, False)
+        self.memo.set_prop(PROP_GUTTER_BM, False)
+        self.memo.set_prop(PROP_MINIMAP, False)
+        self.memo.set_prop(PROP_MICROMAP, False)
+        self.memo.set_prop(PROP_SCROLLSTYLE_VERT, SCROLLSTYLE_HIDE)
+        self.memo.set_prop(PROP_SCROLLSTYLE_HORZ, SCROLLSTYLE_HIDE)
+        self.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
+        self.memo.set_prop(PROP_CARET_VIEW_RO, self.memo.get_prop(PROP_CARET_VIEW))
+        #self.memo.set_prop(PROP_HILITE_CUR_LINE, True)
+        self.memo.set_prop(PROP_THEMED, False)
+        self.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, 0))
+        self.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, apx.html_color_to_int('ffffe1')))
+        self.memo.set_text_all(text)
+
+        spacing = 2
+        cell_x, cell_y = self.memo.get_prop(PROP_CELL_SIZE, 0)
+        max_line_len = 10
+        for line in text.splitlines():
+            max_line_len = max(max_line_len, len(line))
+        dlg_height = (self.memo.get_line_count()) * cell_y + (spacing*2)
+        dlg_width = max_line_len * cell_x + (spacing*2)
+
+        x, y = ed.convert(CONVERT_CARET_TO_PIXELS, *ed.get_carets()[0][:2])
+        x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
+
+        dlg_proc(idd, DLG_CTL_PROP_SET, index=idc, prop={
+        'border': DBORDER_NONE,
+        'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
+        'sp_a': spacing})
+
+        dlg_proc(idd, DLG_PROP_SET, prop={
+        #'p': ed.get_prop(PROP_HANDLE_SELF),
+        'color': apx.html_color_to_int('ffffe1'),
+        'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Hint', 'topmost':True, 'border': DBORDER_NONE})
+
+        dlg_proc(idd, DLG_SHOW_NONMODAL)
+        ed.focus()
+
+        timer_proc(TIMER_START_ONE, self.free, 4000, tag='')
+
+    def free(self, tag='', info=''):
+        print('free',self)
+        dlg_proc(self.idd, DLG_FREE)

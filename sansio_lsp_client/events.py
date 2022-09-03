@@ -176,6 +176,11 @@ class SignatureHelp(Event):
         active_sig = self.activeSignature or 0
         sig = self.signatures[active_sig]
         return sig.label
+        
+    def get_signatures(self):
+        if len(self.signatures) == 0:
+            return None
+        return self.signatures, self.activeSignature, self.activeParameter
 
 
 class Definition(Event):
