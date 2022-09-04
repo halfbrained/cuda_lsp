@@ -768,21 +768,21 @@ class SignaturesDialog:
             dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h })
     
     @classmethod
-    def show(cls, signatures):
+    def set_text(cls, signatures):
+        if cls.h is None:
+            cls.h, cls.memo = cls.init_form()
+
         signatures, activeSignature, activeParameter = signatures       
         
-        # check if same data and tooltip is already visible (reduce flicker)
+        # check if same data and tooltip is already visible
         data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
         if cls.is_visible() and cls.last_data and cls.last_data == data:
             cls.move_window()
             return
         cls.last_data = data
         
-        if cls.h is not None:
-            dlg_proc(cls.h, DLG_FREE)
-        cls.h, cls.memo = cls.init_form()
-
         cls.param_pos = 0
+        cls.memo.set_text_all('')
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
@@ -816,6 +816,15 @@ class SignaturesDialog:
                             cls.param_pos = pos
                             break
                         pos += len(part)+1
+
+    @classmethod
+    def show(cls):
+        if cls.h is None:
+            cls.h, cls.memo = cls.init_form()
+            
+        if cls.is_visible():
+            cls.move_window()
+            return
 
         cls.move_window()
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
