@@ -8,7 +8,7 @@ api=1.0.392
 
 [item2]
 section=events
-events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state,on_exit
+events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state,on_exit,on_app_deactivate
 
 [item3]
 section=events
