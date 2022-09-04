@@ -253,6 +253,7 @@ class Hint:
 
     @classmethod
     def hide(cls):
+        if not cls.h:    return
         # clear editor data and hide dialog
         cls.ed.set_prop(PROP_RO, False)
         cls.ed.set_text_all('')
@@ -824,4 +825,11 @@ class SignaturesDialog:
 
     @classmethod
     def hide(cls, tag='', info=''):
+        if not cls.h:    return
         dlg_proc(cls.h, DLG_HIDE)
+
+    @classmethod
+    def is_visible(cls):
+        if cls.h is None:
+            return False
+        return dlg_proc(cls.h, DLG_PROP_GET)['vis']

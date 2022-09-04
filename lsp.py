@@ -11,7 +11,7 @@ from cudax_lib import _json_loads
 from cudax_lib import get_translation
 _ = get_translation(__file__)  # I18N
 
-from .dlg import Hint
+from .dlg import Hint, SignaturesDialog
 from .util import (
         lex2langid,
         update_lexmap,
@@ -398,6 +398,9 @@ class Command:
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
             doc.lang.request_sighelp(doc)
             return True
+            
+    def on_caret_slow(self, ed_self):
+        self.on_func_hint(ed_self)
 
     def on_goto_def(self, ed_self):
         self.call_definition(ed_self)
@@ -464,9 +467,9 @@ class Command:
             if Hint.is_visible():
                 Hint.hide()
                 return False
-
-    def on_caret_slow(self, ed_self):
-        pass
+            if SignaturesDialog.is_visible():
+                SignaturesDialog.hide()
+                return False
 
     def on_exit(self, *args, **vargs):
         #### save state before exiting
