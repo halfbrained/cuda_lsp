@@ -771,11 +771,11 @@ class SignaturesDialog:
             _y = y-cell_y*len(lines)-cls.spacing*4
             if _y >= 0:     y = _y
             else:           y = y+cell_y+cls.spacing*2
-            if y < 0:     y = 0
-            _, _, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+            desktop_x, desktop_y, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+            if y < desktop_y:     y = desktop_y
             if x + w > desktop_w:
                 x = desktop_w - w
-            if x < 0:   x = 0
+            if x < desktop_x:   x = desktop_x
             
             dlg_proc(cls.h, DLG_PROP_SET, prop={ 'color': cls.color_bg })
             pos_str = '{},{},{},{}'.format(x,y,w,h)
