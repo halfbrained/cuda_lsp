@@ -751,7 +751,7 @@ class SignaturesDialog:
                 max_line_len = max(max_line_len, len(line))
 
             cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
-            h = (cls.memo.get_line_count()) * cell_y + (cls.spacing*2)
+            h = len(lines) * cell_y + (cls.spacing*2)
             w = max_line_len * cell_x + (cls.spacing*2)
             
             caret_x, caret_y = ed.get_carets()[0][:2]
