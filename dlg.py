@@ -755,11 +755,7 @@ class SignaturesDialog:
     
     @classmethod
     def show(cls, signatures):
-        #print('show')
-        
         signatures, activeSignature, activeParameter = signatures       
-        #print('activeSignature',activeSignature)
-        #print('activeParameter',activeParameter)
         
         # check if same data and tooltip is already visible (reduce flicker)
         data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
@@ -797,7 +793,7 @@ class SignaturesDialog:
                         if skipping and param_name != first_real_param:
                             skipped += 1
                             pos += len(part)+1
-                            continue # skip 'cls' or 'cls', etc...
+                            continue # skip 'self' or 'cls', etc...
                         else:
                             skipping = False
                         if j-skipped == activeParameter+1:
@@ -805,12 +801,7 @@ class SignaturesDialog:
                             break
                         pos += len(part)+1
 
-        dlg_proc(cls.h, DLG_PROP_SET, prop={
-            'color': apx.html_color_to_int('ffffe1'),
-            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
-        })
         cls.move_window()
-
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         ed.focus()
 
@@ -819,6 +810,10 @@ class SignaturesDialog:
     @classmethod
     def init_form(cls):
         h=dlg_proc(0, DLG_CREATE)
+        dlg_proc(h, DLG_PROP_SET, prop={
+            'color': apx.html_color_to_int('ffffe1'),
+            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
+        })
         cls.h = h
         
         idc=dlg_proc(h, DLG_CTL_ADD,'editor');
