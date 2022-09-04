@@ -764,6 +764,7 @@ class SignaturesDialog:
             _, _, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
             if x + w > desktop_w:
                 x = desktop_w - w
+            if x < 0:   x = 0
             
             dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h })
     
