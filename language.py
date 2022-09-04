@@ -464,6 +464,7 @@ class Language:
                         SignaturesDialog.show(msg.get_signatures())
                         
                     else:
+                        SignaturesDialog.hide()
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Signature help - no info')
 
         #GOTOs

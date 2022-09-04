@@ -392,7 +392,7 @@ class Command:
             caret = ed_self.convert(CONVERT_PIXELS_TO_CARET, x, y, "")
             self.call_hover(ed_self, caret)
 
-    @command
+    #@command
     def on_func_hint(self, ed_self):
         doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
@@ -400,7 +400,8 @@ class Command:
             return True
             
     def on_caret_slow(self, ed_self):
-        self.on_func_hint(ed_self)
+        if SignaturesDialog.is_visible():
+            self.on_func_hint(ed_self)
 
     def on_goto_def(self, ed_self):
         self.call_definition(ed_self)
