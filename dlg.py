@@ -734,24 +734,38 @@ class SignaturesDialog:
     memo = None
     spacing = 2
     last_data = None
+    param_pos = 0
     
     @classmethod
     def move_window(cls):
         if cls.h and cls.memo:
             max_line_len = 10
-            for line in cls.memo.get_text_all().split('\n'):
+            lines = cls.memo.get_text_all().split('\n')
+            for line in lines:
                 max_line_len = max(max_line_len, len(line))
-            
+
             cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
-            dlg_height = (cls.memo.get_line_count()) * cell_y + (cls.spacing*2)
-            dlg_width = max_line_len * cell_x + (cls.spacing*2)
+            h = (cls.memo.get_line_count()) * cell_y + (cls.spacing*2)
+            w = max_line_len * cell_x + (cls.spacing*2)
             
-            x, y = ed.convert(CONVERT_CARET_TO_PIXELS, *ed.get_carets()[0][:2])
+            caret_x, caret_y = ed.get_carets()[0][:2]
+            
+            # offset x position in hope that parameter in tooltip will be close to caret pos
+            if cls.param_pos:   caret_x = caret_x - cls.param_pos
+            
+            # caret x/y to screen x/y
+            x, y = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y)
             x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
             
-            dlg_proc(cls.h, DLG_PROP_SET, prop={
-                'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height,
-            })
+            # do not allow to move behind screen edges
+            _y = y-cell_y*len(lines)-cls.spacing*2
+            if _y >= 0:     y = _y
+            else:           y = y+cell_y+cls.spacing*2
+            _, _, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+            if x + w > desktop_w:
+                x = desktop_w - w
+            
+            dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h })
     
     @classmethod
     def show(cls, signatures):
@@ -768,6 +782,7 @@ class SignaturesDialog:
             dlg_proc(cls.h, DLG_FREE)
         cls.h, cls.memo = cls.init_form()
 
+        cls.param_pos = 0
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
@@ -798,6 +813,7 @@ class SignaturesDialog:
                             skipping = False
                         if j-skipped == activeParameter+1:
                             cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=apx.html_color_to_int('FF0000'))
+                            cls.param_pos = pos
                             break
                         pos += len(part)+1
 
