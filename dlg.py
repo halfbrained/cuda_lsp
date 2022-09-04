@@ -832,7 +832,9 @@ class SignaturesDialog:
 
         cls.move_window()
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
-        ed.focus()
+        
+        # ed.focus() will be called inside timer (workaround for Linux)
+        timer_proc(TIMER_START_ONE, cls.unfocus, 50, tag='')
 
         timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
         timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
@@ -870,6 +872,10 @@ class SignaturesDialog:
         dlg_proc(h, DLG_SCALE)
         return h, cls.memo
 
+    @classmethod
+    def unfocus(cls, tag='', info=''):
+        ed.focus()
+        
     @classmethod
     def hide(cls, tag='', info=''):
         if not cls.h:    return
