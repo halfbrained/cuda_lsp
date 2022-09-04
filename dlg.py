@@ -901,3 +901,8 @@ class SignaturesDialog:
         if cls.h is None:
             return False
         return dlg_proc(cls.h, DLG_PROP_GET)['vis']
+
+    @classmethod
+    def on_theme_change(cls):
+        cls.last_data = None
+        cls.hide()

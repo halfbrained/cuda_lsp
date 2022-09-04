@@ -466,6 +466,7 @@ class Command:
             from .dlg import PanelLog
 
             PanelLog.on_theme_change()
+            SignaturesDialog.on_theme_change()
 
 
     def on_key(self, ed_self, key, state):
