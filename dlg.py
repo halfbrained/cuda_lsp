@@ -759,13 +759,18 @@ class SignaturesDialog:
                 caret_x = caret_x - cls.param_pos
             
             # caret x/y to screen x/y
-            x, y = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y)
-            x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
+            xy = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y)
+            if not xy:  x, y = 0, 0
+            else:       x, y = xy
+            xy = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
+            if not xy:  x, y = 0, 0
+            else:       x, y = xy
             
             # do not allow to move behind screen edges
             _y = y-cell_y*len(lines)-cls.spacing*4
             if _y >= 0:     y = _y
             else:           y = y+cell_y+cls.spacing*2
+            if y < 0:     y = 0
             _, _, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
             if x + w > desktop_w:
                 x = desktop_w - w
