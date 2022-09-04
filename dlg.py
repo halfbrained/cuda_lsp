@@ -735,6 +735,10 @@ class SignaturesDialog:
     spacing = 2
     last_data = None
     param_pos = 0
+    color_font = 0
+    color_bg = apx.html_color_to_int('ffffe1')
+    color_dimmed = apx.html_color_to_int('909090')
+    color_hilite = apx.html_color_to_int('FF0000')
     
     @classmethod
     def move_window(cls):
@@ -767,14 +771,27 @@ class SignaturesDialog:
                 x = desktop_w - w
             if x < 0:   x = 0
             
-            dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h })
+            dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h, 'color': cls.color_bg })
     
     @classmethod
     def set_text(cls, signatures):
         if cls.h is None:
             cls.h, cls.memo = cls.init_form()
+            
+        colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        cls.color_font = colors['ListFont']['color']
+        cls.color_bg = colors['ListBg']['color']
+        cls.color_hilite = colors['ListFontHotkey']['color']
+        
+        # dimmed -> (color1 + color2) / 2
+        r1 = cls.color_font & 0xFF  ;g1 = cls.color_font >> 8 & 0xFF    ;b1 = cls.color_font >> 16 & 0xFF
+        r2 = cls.color_bg & 0xFF    ;g2 = cls.color_bg >> 8 & 0xFF      ;b2 = cls.color_bg >> 16 & 0xFF
+        cls.color_dimmed = (((b1+b2)//2 & 0xff) << 16) | (((g1+g2)//2 & 0xff) << 8) | ((r1+r2)//2 & 0xff);
 
-        signatures, activeSignature, activeParameter = signatures       
+        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, cls.color_font))
+        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, cls.color_bg))
+
+        signatures, activeSignature, activeParameter = signatures
         
         # check if same data and tooltip is already visible
         data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
@@ -788,13 +805,13 @@ class SignaturesDialog:
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
-                cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=apx.html_color_to_int('909090'))
+                cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=cls.color_dimmed)
             if activeParameter is not None and sig.parameters is not None and len(sig.parameters) > activeParameter:
                 
                 param = sig.parameters[activeParameter].label
                 if isinstance(param, tuple):
                     x1, x2 = param
-                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=apx.html_color_to_int('FF0000'))
+                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite)
                     cls.param_pos = x1
                 elif isinstance(param, str):
                     parts = re.split(r'\(|\)|,(?![^[]*\])', sig.label)
@@ -815,7 +832,7 @@ class SignaturesDialog:
                         else:
                             skipping = False
                         if j-skipped == activeParameter+1:
-                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=apx.html_color_to_int('FF0000'))
+                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=cls.color_hilite)
                             cls.param_pos = pos
                             break
                         pos += len(part)+1
@@ -844,7 +861,6 @@ class SignaturesDialog:
     def init_form(cls):
         h=dlg_proc(0, DLG_CREATE)
         dlg_proc(h, DLG_PROP_SET, prop={
-            'color': apx.html_color_to_int('ffffe1'),
             'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
         })
         cls.h = h
@@ -867,8 +883,6 @@ class SignaturesDialog:
         cls.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
         cls.memo.set_prop(PROP_CARET_VIEW_RO, cls.memo.get_prop(PROP_CARET_VIEW))
         cls.memo.set_prop(PROP_THEMED, False)
-        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, 0))
-        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, apx.html_color_to_int('ffffe1')))
         
         dlg_proc(h, DLG_SCALE)
         return h, cls.memo
