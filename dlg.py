@@ -731,6 +731,7 @@ class PanelLog:
 class SignaturesDialog:
     
     themed = False
+    font_size = 11
     color_font = 0
     color_bg = apx.html_color_to_int('ffffe1')
     color_dimmed = apx.html_color_to_int('909090')
@@ -877,10 +878,13 @@ class SignaturesDialog:
         })
         cls.h = h
         
+        _, cls.font_size = ed.get_prop(PROP_FONT)
+        cls.font_size = cls.font_size * ed.get_prop(PROP_SCALE_FONT) // 100
+        
         idc=dlg_proc(h, DLG_CTL_ADD,'editor');
         dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
             'border': DBORDER_NONE,
-            'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
+            'name':'memo', 'align': ALIGN_CLIENT, 'font_size': cls.font_size,
             'sp_a': cls.spacing
         })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
