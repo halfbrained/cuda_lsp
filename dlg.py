@@ -879,7 +879,7 @@ class SignaturesDialog:
         cls.h = h
         
         _, cls.font_size = ed.get_prop(PROP_FONT)
-        cls.font_size = cls.font_size * ed.get_prop(PROP_SCALE_FONT) // 100
+        cls.font_size = cls.font_size * int(ed.get_prop(PROP_SCALE_FONT) / 100)
         
         idc=dlg_proc(h, DLG_CTL_ADD,'editor');
         dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
