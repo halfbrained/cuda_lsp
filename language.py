@@ -461,7 +461,8 @@ class Language:
                         # 8 - default duration
                         #msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
                         
-                        SignaturesDialog.show(msg.get_signatures())
+                        SignaturesDialog.set_text(msg.get_signatures())
+                        SignaturesDialog.show()
                         
                     else:
                         SignaturesDialog.hide()
