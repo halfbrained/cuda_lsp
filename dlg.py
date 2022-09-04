@@ -730,15 +730,16 @@ class PanelLog:
 
 class SignaturesDialog:
     
-    h = None
-    memo = None
-    spacing = 2
-    last_data = None
-    param_pos = 0
+    themed = False
     color_font = 0
     color_bg = apx.html_color_to_int('ffffe1')
     color_dimmed = apx.html_color_to_int('909090')
-    color_hilite = apx.html_color_to_int('FF0000')
+    color_hilite = apx.html_color_to_int('0000FF')
+    h = None
+    memo = None
+    spacing = 2
+    #last_data = None
+    param_pos = 0
     
     @classmethod
     def move_window(cls):
@@ -776,22 +777,28 @@ class SignaturesDialog:
                 x = desktop_w - w
             if x < 0:   x = 0
             
-            dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h, 'color': cls.color_bg })
+            dlg_proc(cls.h, DLG_PROP_SET, prop={ 'color': cls.color_bg })
+            pos_str = '{},{},{},{}'.format(x,y,w,h)
+            if cls.is_visible():
+                dlg_proc(cls.h, DLG_POS_SET_FROM_STR, prop=pos_str)
+            else:
+                dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h })
     
     @classmethod
     def set_text(cls, signatures):
         if cls.h is None:
             cls.h, cls.memo = cls.init_form()
             
-        colors = app_proc(PROC_THEME_UI_DICT_GET, '')
-        cls.color_font = colors['ListFont']['color']
-        cls.color_bg = colors['ListBg']['color']
-        cls.color_hilite = colors['ListFontHotkey']['color']
-        
-        # dimmed -> (color1 + color2) / 2
-        r1 = cls.color_font & 0xFF  ;g1 = cls.color_font >> 8 & 0xFF    ;b1 = cls.color_font >> 16 & 0xFF
-        r2 = cls.color_bg & 0xFF    ;g2 = cls.color_bg >> 8 & 0xFF      ;b2 = cls.color_bg >> 16 & 0xFF
-        cls.color_dimmed = (((b1+b2)//2 & 0xff) << 16) | (((g1+g2)//2 & 0xff) << 8) | ((r1+r2)//2 & 0xff);
+        if cls.themed:
+            colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+            cls.color_font = colors['ListFont']['color']
+            cls.color_bg = colors['ListBg']['color']
+            cls.color_hilite = colors['ListFontHotkey']['color']
+            
+            # dimmed -> (color1 + color2) / 2
+            r1 = cls.color_font & 0xFF  ;g1 = cls.color_font >> 8 & 0xFF    ;b1 = cls.color_font >> 16 & 0xFF
+            r2 = cls.color_bg & 0xFF    ;g2 = cls.color_bg >> 8 & 0xFF      ;b2 = cls.color_bg >> 16 & 0xFF
+            cls.color_dimmed = (((b1+b2)//2 & 0xff) << 16) | (((g1+g2)//2 & 0xff) << 8) | ((r1+r2)//2 & 0xff);
 
         cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, cls.color_font))
         cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, cls.color_bg))
@@ -799,11 +806,11 @@ class SignaturesDialog:
         signatures, activeSignature, activeParameter = signatures
         
         # check if same data and tooltip is already visible
-        data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
-        if cls.is_visible() and cls.last_data and cls.last_data == data:
-            cls.move_window()
-            return
-        cls.last_data = data
+        #data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
+        #if cls.is_visible() and cls.last_data and cls.last_data == data:
+            #cls.move_window()
+            #return
+        #cls.last_data = data
         
         cls.param_pos = 0
         cls.memo.set_text_all('')
@@ -866,7 +873,7 @@ class SignaturesDialog:
     def init_form(cls):
         h=dlg_proc(0, DLG_CREATE)
         dlg_proc(h, DLG_PROP_SET, prop={
-            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
+            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE, 'taskbar': 2
         })
         cls.h = h
         
@@ -874,7 +881,7 @@ class SignaturesDialog:
         dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
             'border': DBORDER_NONE,
             'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
-            'sp_a': cls.spacing,
+            'sp_a': cls.spacing
         })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
         cls.memo.set_prop(PROP_GUTTER_NUM, False)
@@ -909,5 +916,5 @@ class SignaturesDialog:
 
     @classmethod
     def on_theme_change(cls):
-        cls.last_data = None
+        #cls.last_data = None
         cls.hide()
