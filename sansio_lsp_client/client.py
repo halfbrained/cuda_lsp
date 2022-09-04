@@ -110,10 +110,11 @@ CAPABILITIES = {
         'signatureHelp': {
             'dynamicRegistration': True,
             'signatureInformation': {
+                'documentationFormat': ['markdown', 'plaintext'],
                 'parameterInformation': {
-                    'labelOffsetSupport': False # substring from label -- no use in CudaText
+                    'labelOffsetSupport': True
                 },
-                'documentationFormat': ['markdown', 'plaintext']
+                'activeParameterSupport': True
             }
         },
         'implementation': {
