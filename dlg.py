@@ -745,7 +745,7 @@ class SignaturesDialog:
         
         # check if same data and tooltip is already visible (reduce flicker)
         data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
-        if cls.last_data and cls.last_data == data:
+        if cls.is_visible() and cls.last_data and cls.last_data == data:
             return
         cls.last_data = data
         
@@ -797,8 +797,9 @@ class SignaturesDialog:
         x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
 
         dlg_proc(cls.h, DLG_PROP_SET, prop={
-        'color': apx.html_color_to_int('ffffe1'),
-        'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE})
+            'color': apx.html_color_to_int('ffffe1'),
+            'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
+        })
 
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         ed.focus()
@@ -815,7 +816,6 @@ class SignaturesDialog:
             'border': DBORDER_NONE,
             'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
             'sp_a': cls.spacing,
-            'p': ed.get_prop(PROP_HANDLE_SELF ), #set parent to Editor handle
         })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
         cls.memo.set_prop(PROP_GUTTER_NUM, False)

@@ -407,6 +407,9 @@ class Command:
         self.call_definition(ed_self)
 
     def on_tab_change(self, ed_self):
+        if SignaturesDialog.is_visible():
+            SignaturesDialog.hide()
+        
         doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang:
             doc.lang.on_ed_shown(doc)
