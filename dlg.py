@@ -751,7 +751,8 @@ class SignaturesDialog:
             caret_x, caret_y = ed.get_carets()[0][:2]
             
             # offset x position in hope that parameter in tooltip will be close to caret pos
-            if cls.param_pos:   caret_x = caret_x - cls.param_pos
+            if cls.param_pos and caret_x - cls.param_pos >=0:
+                caret_x = caret_x - cls.param_pos
             
             # caret x/y to screen x/y
             x, y = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y)
