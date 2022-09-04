@@ -736,6 +736,24 @@ class SignaturesDialog:
     last_data = None
     
     @classmethod
+    def move_window(cls):
+        if cls.h and cls.memo:
+            max_line_len = 10
+            for line in cls.memo.get_text_all().split('\n'):
+                max_line_len = max(max_line_len, len(line))
+            
+            cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
+            dlg_height = (cls.memo.get_line_count()) * cell_y + (cls.spacing*2)
+            dlg_width = max_line_len * cell_x + (cls.spacing*2)
+            
+            x, y = ed.convert(CONVERT_CARET_TO_PIXELS, *ed.get_carets()[0][:2])
+            x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
+            
+            dlg_proc(cls.h, DLG_PROP_SET, prop={
+                'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height,
+            })
+    
+    @classmethod
     def show(cls, signatures):
         #print('show')
         
@@ -746,17 +764,15 @@ class SignaturesDialog:
         # check if same data and tooltip is already visible (reduce flicker)
         data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
         if cls.is_visible() and cls.last_data and cls.last_data == data:
+            cls.move_window()
             return
         cls.last_data = data
         
         if cls.h is not None:
             dlg_proc(cls.h, DLG_FREE)
         cls.h, cls.memo = cls.init_form()
-        
-        
-        max_line_len = 10
+
         for i,sig in enumerate(signatures):
-            max_line_len = max(max_line_len, len(sig.label))
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
                 cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=apx.html_color_to_int('909090'))
@@ -789,17 +805,11 @@ class SignaturesDialog:
                             break
                         pos += len(part)+1
 
-        cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
-        dlg_height = (cls.memo.get_line_count()) * cell_y + (cls.spacing*2)
-        dlg_width = max_line_len * cell_x + (cls.spacing*2)
-
-        x, y = ed.convert(CONVERT_CARET_TO_PIXELS, *ed.get_carets()[0][:2])
-        x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
-
         dlg_proc(cls.h, DLG_PROP_SET, prop={
             'color': apx.html_color_to_int('ffffe1'),
-            'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
+            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE,
         })
+        cls.move_window()
 
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         ed.focus()
