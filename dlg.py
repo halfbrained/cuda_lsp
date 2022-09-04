@@ -733,16 +733,26 @@ class SignaturesDialog:
     h = None
     memo = None
     spacing = 2
+    last_data = None
     
     @classmethod
     def show(cls, signatures):
-        if cls.h is not None:
-            dlg_proc(cls.h, DLG_FREE)
-        cls.h, cls.memo = cls.init_form()
+        #print('show')
         
         signatures, activeSignature, activeParameter = signatures       
         #print('activeSignature',activeSignature)
         #print('activeParameter',activeParameter)
+        
+        # check if same data and tooltip is already visible (reduce flicker)
+        data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
+        if cls.last_data and cls.last_data == data:
+            return
+        cls.last_data = data
+        
+        if cls.h is not None:
+            dlg_proc(cls.h, DLG_FREE)
+        cls.h, cls.memo = cls.init_form()
+        
         
         max_line_len = 10
         for i,sig in enumerate(signatures):
@@ -788,7 +798,7 @@ class SignaturesDialog:
 
         dlg_proc(cls.h, DLG_PROP_SET, prop={
         'color': apx.html_color_to_int('ffffe1'),
-        'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Hint', 'topmost':True, 'border': DBORDER_NONE})
+        'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE})
 
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         ed.focus()
@@ -802,9 +812,11 @@ class SignaturesDialog:
         
         idc=dlg_proc(h, DLG_CTL_ADD,'editor');
         dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
-        'border': DBORDER_NONE,
-        'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
-        'sp_a': cls.spacing})
+            'border': DBORDER_NONE,
+            'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
+            'sp_a': cls.spacing,
+            'p': ed.get_prop(PROP_HANDLE_SELF ), #set parent to Editor handle
+        })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
         cls.memo.set_prop(PROP_GUTTER_NUM, False)
         cls.memo.set_prop(PROP_GUTTER_STATES, False)
