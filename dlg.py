@@ -1,4 +1,5 @@
 import os
+import re
 from collections import namedtuple, defaultdict
 
 from cudatext import *
@@ -727,63 +728,100 @@ class PanelLog:
         return cls.panels[panel_name]
 
 class SignaturesDialog:
-    def __init__(self, signatures):
+    
+    h = None
+    memo = None
+    spacing = 2
+    
+    @classmethod
+    def show(cls, signatures):
+        if cls.h is not None:
+            dlg_proc(cls.h, DLG_FREE)
+        cls.h, cls.memo = cls.init_form()
         
-        signatures, activeSignature, activeParameter = signatures
+        signatures, activeSignature, activeParameter = signatures       
+        #print('activeSignature',activeSignature)
+        #print('activeParameter',activeParameter)
         
-        #print(signatures)
-        print('activeSignature',activeSignature)
-        print('activeParameter',activeParameter)
-        
-        idd=dlg_proc(0, DLG_CREATE)
-        print('new dialog',self)
-        self.idd = idd
-
-        idc=dlg_proc(idd, DLG_CTL_ADD,'editor');
-        self.memo = Editor(dlg_proc(idd, DLG_CTL_HANDLE, index=idc))
-        self.memo.set_prop(PROP_GUTTER_NUM, False)
-        self.memo.set_prop(PROP_GUTTER_STATES, False)
-        self.memo.set_prop(PROP_GUTTER_FOLD, False)
-        self.memo.set_prop(PROP_GUTTER_BM, False)
-        self.memo.set_prop(PROP_MINIMAP, False)
-        self.memo.set_prop(PROP_MICROMAP, False)
-        self.memo.set_prop(PROP_SCROLLSTYLE_VERT, SCROLLSTYLE_HIDE)
-        self.memo.set_prop(PROP_SCROLLSTYLE_HORZ, SCROLLSTYLE_HIDE)
-        self.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
-        self.memo.set_prop(PROP_CARET_VIEW_RO, self.memo.get_prop(PROP_CARET_VIEW))
-        #self.memo.set_prop(PROP_HILITE_CUR_LINE, True)
-        self.memo.set_prop(PROP_THEMED, False)
-        self.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, 0))
-        self.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, apx.html_color_to_int('ffffe1')))
-
         max_line_len = 10
         for i,sig in enumerate(signatures):
             max_line_len = max(max_line_len, len(sig.label))
-            self.memo.set_text_line(-2, sig.label)
+            cls.memo.set_text_line(-2, sig.label)
+            if i != activeSignature:
+                cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=apx.html_color_to_int('909090'))
+            if activeParameter is not None and sig.parameters is not None and len(sig.parameters) > activeParameter:
+                
+                param = sig.parameters[activeParameter].label
+                if isinstance(param, tuple):
+                    x1, x2 = param
+                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=apx.html_color_to_int('FF0000'))
+                elif isinstance(param, str):
+                    parts = re.split(r'\(|\)|,(?![^[]*\])', sig.label)
+                    pos = 0
+                    skipping = True
+                    skipped = -1
+                    for j,part in enumerate(parts):
+                        if ':' not in part:
+                            param_name = part
+                        else:
+                            param_name = part.split(':')[0]
+                        param_name = param_name.strip().replace('*','')
+                        first_real_param = sig.parameters[0].label.strip().replace('*','')
+                        if skipping and param_name != first_real_param:
+                            skipped += 1
+                            pos += len(part)+1
+                            continue # skip 'cls' or 'cls', etc...
+                        else:
+                            skipping = False
+                        if j-skipped == activeParameter+1:
+                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=apx.html_color_to_int('FF0000'))
+                            break
+                        pos += len(part)+1
 
-        spacing = 2
-        cell_x, cell_y = self.memo.get_prop(PROP_CELL_SIZE, 0)
-        dlg_height = (self.memo.get_line_count()) * cell_y + (spacing*2)
-        dlg_width = max_line_len * cell_x + (spacing*2)
+        cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
+        dlg_height = (cls.memo.get_line_count()) * cell_y + (cls.spacing*2)
+        dlg_width = max_line_len * cell_x + (cls.spacing*2)
 
         x, y = ed.convert(CONVERT_CARET_TO_PIXELS, *ed.get_carets()[0][:2])
         x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
 
-        dlg_proc(idd, DLG_CTL_PROP_SET, index=idc, prop={
-        'border': DBORDER_NONE,
-        'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
-        'sp_a': spacing})
-
-        dlg_proc(idd, DLG_PROP_SET, prop={
-        #'p': ed.get_prop(PROP_HANDLE_SELF),
+        dlg_proc(cls.h, DLG_PROP_SET, prop={
         'color': apx.html_color_to_int('ffffe1'),
         'x':x, 'y':y-cell_y, 'w':dlg_width, 'h':dlg_height, 'cap':'Hint', 'topmost':True, 'border': DBORDER_NONE})
 
-        dlg_proc(idd, DLG_SHOW_NONMODAL)
+        dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         ed.focus()
 
-        timer_proc(TIMER_START_ONE, self.free, 4000, tag='')
+        timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
+        
+    @classmethod
+    def init_form(cls):
+        h=dlg_proc(0, DLG_CREATE)
+        cls.h = h
+        
+        idc=dlg_proc(h, DLG_CTL_ADD,'editor');
+        dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
+        'border': DBORDER_NONE,
+        'name':'memo', 'align': ALIGN_CLIENT, 'font_size': 11,
+        'sp_a': cls.spacing})
+        cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
+        cls.memo.set_prop(PROP_GUTTER_NUM, False)
+        cls.memo.set_prop(PROP_GUTTER_STATES, False)
+        cls.memo.set_prop(PROP_GUTTER_FOLD, False)
+        cls.memo.set_prop(PROP_GUTTER_BM, False)
+        cls.memo.set_prop(PROP_MINIMAP, False)
+        cls.memo.set_prop(PROP_MICROMAP, False)
+        cls.memo.set_prop(PROP_SCROLLSTYLE_VERT, SCROLLSTYLE_HIDE)
+        cls.memo.set_prop(PROP_SCROLLSTYLE_HORZ, SCROLLSTYLE_HIDE)
+        cls.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
+        cls.memo.set_prop(PROP_CARET_VIEW_RO, cls.memo.get_prop(PROP_CARET_VIEW))
+        cls.memo.set_prop(PROP_THEMED, False)
+        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, 0))
+        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, apx.html_color_to_int('ffffe1')))
+        
+        dlg_proc(h, DLG_SCALE)
+        return h, cls.memo
 
-    def free(self, tag='', info=''):
-        print('free',self)
-        dlg_proc(self.idd, DLG_FREE)
+    @classmethod
+    def hide(cls, tag='', info=''):
+        dlg_proc(cls.h, DLG_HIDE)

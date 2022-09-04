@@ -461,7 +461,7 @@ class Language:
                         # 8 - default duration
                         #msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
                         
-                        SignaturesDialog(msg.get_signatures())
+                        SignaturesDialog.show(msg.get_signatures())
                         
                     else:
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Signature help - no info')
