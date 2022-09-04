@@ -758,7 +758,7 @@ class SignaturesDialog:
             x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
             
             # do not allow to move behind screen edges
-            _y = y-cell_y*len(lines)-cls.spacing*2
+            _y = y-cell_y*len(lines)-cls.spacing*4
             if _y >= 0:     y = _y
             else:           y = y+cell_y+cls.spacing*2
             _, _, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
