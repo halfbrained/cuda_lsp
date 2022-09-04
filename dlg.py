@@ -793,6 +793,7 @@ class SignaturesDialog:
                 if isinstance(param, tuple):
                     x1, x2 = param
                     cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=apx.html_color_to_int('FF0000'))
+                    cls.param_pos = x1
                 elif isinstance(param, str):
                     parts = re.split(r'\(|\)|,(?![^[]*\])', sig.label)
                     pos = 0
@@ -824,12 +825,15 @@ class SignaturesDialog:
             
         if cls.is_visible():
             cls.move_window()
+            timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
+            timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
             return
 
         cls.move_window()
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         ed.focus()
 
+        timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
         timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
         
     @classmethod
