@@ -751,6 +751,7 @@ class SignaturesDialog:
                 max_line_len = max(max_line_len, len(line))
 
             cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
+            ed_cell_x, ed_cell_y = ed.get_prop(PROP_CELL_SIZE, 0)
             h = len(lines) * cell_y + (cls.spacing*4)
             w = max_line_len * cell_x + (cls.spacing*4)
             
@@ -771,7 +772,7 @@ class SignaturesDialog:
             # do not allow to move behind screen edges
             _y = y-cell_y*len(lines)-cls.spacing*6
             if _y >= 0:     y = _y
-            else:           y = y+cell_y+cls.spacing*2
+            else:           y = y+ed_cell_y+cls.spacing*2
             desktop_x, desktop_y, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
             if y < desktop_y:     y = desktop_y
             if x + w > desktop_w:
