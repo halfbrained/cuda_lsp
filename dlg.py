@@ -814,6 +814,7 @@ class SignaturesDialog:
         #cls.last_data = data
         
         cls.param_pos = 0
+        cls.memo.set_prop(PROP_RO, False)
         cls.memo.set_text_all('')
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
@@ -849,6 +850,9 @@ class SignaturesDialog:
                             cls.param_pos = pos
                             break
                         pos += len(part)+1
+        cls.memo.set_prop(PROP_LINE_TOP, 0)
+        cls.memo.set_prop(PROP_SCROLL_HORZ, 0)
+        cls.memo.set_prop(PROP_RO, True)
 
     @classmethod
     def show(cls):
@@ -888,6 +892,7 @@ class SignaturesDialog:
             'sp_a': cls.spacing
         })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
+        cls.memo.set_prop(PROP_LAST_LINE_ON_TOP, False)
         cls.memo.set_prop(PROP_GUTTER_NUM, False)
         cls.memo.set_prop(PROP_GUTTER_STATES, False)
         cls.memo.set_prop(PROP_GUTTER_FOLD, False)
