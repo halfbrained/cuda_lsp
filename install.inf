@@ -12,7 +12,7 @@ events=on_open,on_save_pre,on_save,on_close,on_tab_change,on_state,on_exit,on_ap
 
 [item3]
 section=events
-events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint,on_goto_def,on_focus~,on_caret_slow
+events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint,on_goto_def,on_focus~,on_caret_slow,on_scroll
 
 [item4]
 section=events

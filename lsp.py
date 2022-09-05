@@ -402,6 +402,11 @@ class Command:
     def on_caret_slow(self, ed_self):
         if SignaturesDialog.is_visible():
             self.on_func_hint(ed_self)
+            
+    def on_scroll(self, ed_self):
+        print('event: on scroll')
+        if SignaturesDialog.is_visible():
+            SignaturesDialog.hide()
 
     def on_goto_def(self, ed_self):
         self.call_definition(ed_self)
