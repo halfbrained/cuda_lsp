@@ -17,8 +17,8 @@ events=on_change_slow,on_complete,on_lexer,on_snippet,on_mouse_stop,on_func_hint
 [item4]
 section=events
 events=on_key
-; handle only Escape key
-keys=27
+; handles Escape key and Up/Down keys
+keys=27,38,40
 
 [item21]
 section=commands

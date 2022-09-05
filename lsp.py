@@ -483,6 +483,9 @@ class Command:
             if SignaturesDialog.is_visible():
                 SignaturesDialog.hide()
                 return False
+        elif key in (38,40) and 'c' not in state and 's' not in state and 'a' not in state:
+            if SignaturesDialog.is_visible():
+                SignaturesDialog.hide()
 
     def on_exit(self, *args, **vargs):
         #### save state before exiting
