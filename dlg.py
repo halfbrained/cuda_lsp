@@ -739,7 +739,6 @@ class SignaturesDialog:
     h = None
     memo = None
     spacing = 2
-    #last_data = None
     param_pos = 0
     
     @classmethod
@@ -806,13 +805,6 @@ class SignaturesDialog:
         cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, cls.color_bg))
 
         signatures, activeSignature, activeParameter = signatures
-        
-        # check if same data and tooltip is already visible
-        #data = ('\n'.join([i.label for i in signatures]), activeSignature, activeParameter)
-        #if cls.is_visible() and cls.last_data and cls.last_data == data:
-            #cls.move_window()
-            #return
-        #cls.last_data = data
         
         cls.param_pos = 0
         cls.memo.set_prop(PROP_RO, False)
@@ -926,5 +918,4 @@ class SignaturesDialog:
 
     @classmethod
     def on_theme_change(cls):
-        #cls.last_data = None
         cls.hide()
