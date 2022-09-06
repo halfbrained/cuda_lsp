@@ -896,6 +896,7 @@ class SignaturesDialog:
         cls.memo.set_prop(PROP_SCROLLSTYLE_HORZ, SCROLLSTYLE_HIDE)
         cls.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
         cls.memo.set_prop(PROP_CARET_VIEW_RO, cls.memo.get_prop(PROP_CARET_VIEW))
+        cls.memo.set_prop(PROP_WRAP, WRAP_OFF)
         cls.memo.set_prop(PROP_THEMED, False)
         
         dlg_proc(h, DLG_SCALE)
