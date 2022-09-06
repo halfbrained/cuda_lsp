@@ -404,7 +404,6 @@ class Command:
             self.on_func_hint(ed_self)
             
     def on_scroll(self, ed_self):
-        print('event: on scroll')
         if SignaturesDialog.is_visible():
             SignaturesDialog.hide()
 
