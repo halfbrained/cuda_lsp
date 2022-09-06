@@ -1,6 +1,6 @@
 
 2022.09.07
-+ add: all new tooltip for the "function hint" command (Ctrl+Shift+Space) (by @veksha)
++ add: all new tooltip for the "show function-hint" command / Ctrl+Shift+Space (by @veksha)
 
 2022.08.25
 + add: use new CudaText API to show tooltips for guttter icons, when "lint_type" option is set to "d" (by @veksha)
