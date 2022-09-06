@@ -859,6 +859,7 @@ class SignaturesDialog:
             return
 
         cls.move_window()
+        dlg_proc(cls.h, DLG_PROP_SET, prop={ 'taskbar': 2 })
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         
         # ed.focus() will be called inside timer (workaround for Linux)
