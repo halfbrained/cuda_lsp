@@ -1,6 +1,7 @@
 
 2022.09.07
 + add: all new tooltip for the "show function-hint" command / Ctrl+Shift+Space (by @veksha)
++ add: for option "lint_type":"d", plugin adds tooltips for gutter-decor-icons; it needs CudaText 1.169.2+ (by @veksha)
 
 2022.08.25
 + add: use new CudaText API to show tooltips for guttter icons, when "lint_type" option is set to "d" (by @veksha)
