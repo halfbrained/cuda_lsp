@@ -1,4 +1,5 @@
 import os
+import re
 from collections import namedtuple, defaultdict
 
 from cudatext import *
@@ -252,6 +253,7 @@ class Hint:
 
     @classmethod
     def hide(cls):
+        if not cls.h:    return
         # clear editor data and hide dialog
         cls.ed.set_prop(PROP_RO, False)
         cls.ed.set_text_all('')
@@ -726,3 +728,197 @@ class PanelLog:
 
         return cls.panels[panel_name]
 
+class SignaturesDialog:
+    
+    themed = False
+    font_size = 11
+    color_font = 0
+    color_bg = apx.html_color_to_int('ffffe1')
+    color_dimmed = apx.html_color_to_int('909090')
+    color_hilite = apx.html_color_to_int('0000FF')
+    h = None
+    memo = None
+    spacing = 2
+    param_pos = 0
+    
+    @classmethod
+    def move_window(cls):
+        if cls.h and cls.memo:
+            max_line_len = 10
+            lines = cls.memo.get_text_all().split('\n')
+            for line in lines:
+                max_line_len = max(max_line_len, len(line))
+
+            cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
+            ed_cell_x, ed_cell_y = ed.get_prop(PROP_CELL_SIZE, 0)
+            h = len(lines) * cell_y + (cls.spacing*4)
+            w = max_line_len * cell_x + (cls.spacing*4)
+            
+            caret_x, caret_y = ed.get_carets()[0][:2]
+            
+            # caret x/y to screen x/y
+            xy = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y)
+            if not xy:  x, y = 0, 0
+            else:       x, y = xy
+            xy = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
+            if not xy:  x, y = 0, 0
+            else:       x, y = xy
+            
+            # offset x position in hope that parameter in tooltip will be close to caret pos
+            if cls.param_pos:
+                x = x - cls.param_pos*cell_x
+            
+            # do not allow to move behind screen edges
+            _y = y-cell_y*len(lines)-cls.spacing*6
+            if _y >= 0:     y = _y
+            else:           y = y+ed_cell_y+cls.spacing*2
+            desktop_x, desktop_y, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+            if y < desktop_y:     y = desktop_y
+            if x + w > desktop_w:
+                x = desktop_w - w
+            if x < desktop_x:   x = desktop_x
+            
+            dlg_proc(cls.h, DLG_PROP_SET, prop={ 'color': cls.color_bg })
+            pos_str = '{},{},{},{}'.format(x,y,w,h)
+            if cls.is_visible():
+                dlg_proc(cls.h, DLG_POS_SET_FROM_STR, prop=pos_str)
+            else:
+                dlg_proc(cls.h, DLG_PROP_SET, prop={ 'x':x, 'y':y, 'w':w, 'h':h })
+    
+    @classmethod
+    def set_text(cls, signatures):
+        if cls.h is None:
+            cls.h, cls.memo = cls.init_form()
+            
+        if cls.themed:
+            colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+            cls.color_font = colors['ListFont']['color']
+            cls.color_bg = colors['ListBg']['color']
+            cls.color_hilite = colors['ListFontHotkey']['color']
+            
+            # dimmed -> (color1 + color2) / 2
+            r1 = cls.color_font & 0xFF  ;g1 = cls.color_font >> 8 & 0xFF    ;b1 = cls.color_font >> 16 & 0xFF
+            r2 = cls.color_bg & 0xFF    ;g2 = cls.color_bg >> 8 & 0xFF      ;b2 = cls.color_bg >> 16 & 0xFF
+            cls.color_dimmed = (((b1+b2)//2 & 0xff) << 16) | (((g1+g2)//2 & 0xff) << 8) | ((r1+r2)//2 & 0xff);
+
+        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextFont, cls.color_font))
+        cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, cls.color_bg))
+
+        signatures, activeSignature, activeParameter = signatures
+        
+        cls.param_pos = 0
+        cls.memo.set_prop(PROP_RO, False)
+        cls.memo.set_text_all('')
+        for i,sig in enumerate(signatures):
+            cls.memo.set_text_line(-2, sig.label)
+            if i != activeSignature:
+                cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=cls.color_dimmed)
+            if activeParameter is not None and sig.parameters is not None and len(sig.parameters) > activeParameter:
+                
+                param = sig.parameters[activeParameter].label
+                if isinstance(param, tuple):
+                    x1, x2 = param
+                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite)
+                    cls.param_pos = x1
+                elif isinstance(param, str):
+                    parts = re.split(r'\(|\)|,(?![^[]*\])', sig.label)
+                    pos = 0
+                    skipping = True
+                    skipped = -1
+                    for j,part in enumerate(parts):
+                        if ':' not in part:
+                            param_name = part
+                        else:
+                            param_name = part.split(':')[0]
+                        param_name = param_name.strip().replace('*','')
+                        first_real_param = sig.parameters[0].label.strip().replace('*','')
+                        if skipping and param_name != first_real_param:
+                            skipped += 1
+                            pos += len(part)+1
+                            continue # skip 'self' or 'cls', etc...
+                        else:
+                            skipping = False
+                        if j-skipped == activeParameter+1:
+                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=cls.color_hilite)
+                            cls.param_pos = pos
+                            break
+                        pos += len(part)+1
+        cls.memo.set_prop(PROP_LINE_TOP, 0)
+        cls.memo.set_prop(PROP_SCROLL_HORZ, 0)
+        cls.memo.set_prop(PROP_RO, True)
+
+    @classmethod
+    def show(cls):
+        if cls.h is None:
+            cls.h, cls.memo = cls.init_form()
+            
+        if cls.is_visible():
+            cls.move_window()
+            timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
+            timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
+            return
+
+        cls.move_window()
+        dlg_proc(cls.h, DLG_PROP_SET, prop={ 'taskbar': 2 })
+        dlg_proc(cls.h, DLG_SHOW_NONMODAL)
+        
+        # ed.focus() will be called inside timer (workaround for Linux)
+        timer_proc(TIMER_START_ONE, cls.unfocus, 50, tag='')
+
+        timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
+        timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
+        
+    @classmethod
+    def init_form(cls):
+        h=dlg_proc(0, DLG_CREATE)
+        dlg_proc(h, DLG_PROP_SET, prop={
+            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE, 'taskbar': 2
+        })
+        cls.h = h
+        
+        _, cls.font_size = ed.get_prop(PROP_FONT)
+        cls.font_size = int(cls.font_size * ed.get_prop(PROP_SCALE_FONT) / 100)
+        
+        idc=dlg_proc(h, DLG_CTL_ADD,'editor');
+        dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
+            'border': DBORDER_NONE,
+            'name':'memo', 'align': ALIGN_CLIENT, 'font_size': cls.font_size,
+            'sp_a': cls.spacing
+        })
+        cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
+        cls.memo.set_prop(PROP_LAST_LINE_ON_TOP, False)
+        cls.memo.set_prop(PROP_GUTTER_NUM, False)
+        cls.memo.set_prop(PROP_GUTTER_STATES, False)
+        cls.memo.set_prop(PROP_GUTTER_FOLD, False)
+        cls.memo.set_prop(PROP_GUTTER_BM, False)
+        cls.memo.set_prop(PROP_MINIMAP, False)
+        cls.memo.set_prop(PROP_MICROMAP, False)
+        cls.memo.set_prop(PROP_SCROLLSTYLE_VERT, SCROLLSTYLE_HIDE)
+        cls.memo.set_prop(PROP_SCROLLSTYLE_HORZ, SCROLLSTYLE_HIDE)
+        cls.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
+        cls.memo.set_prop(PROP_CARET_VIEW_RO, cls.memo.get_prop(PROP_CARET_VIEW))
+        cls.memo.set_prop(PROP_WRAP, WRAP_OFF)
+        cls.memo.set_prop(PROP_HILITE_CUR_LINE, False)
+        cls.memo.set_prop(PROP_THEMED, False)
+        
+        dlg_proc(h, DLG_SCALE)
+        return h, cls.memo
+
+    @classmethod
+    def unfocus(cls, tag='', info=''):
+        ed.focus()
+        
+    @classmethod
+    def hide(cls, tag='', info=''):
+        if not cls.h:    return
+        dlg_proc(cls.h, DLG_HIDE)
+
+    @classmethod
+    def is_visible(cls):
+        if cls.h is None:
+            return False
+        return dlg_proc(cls.h, DLG_PROP_GET)['vis']
+
+    @classmethod
+    def on_theme_change(cls):
+        cls.hide()

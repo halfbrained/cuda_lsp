@@ -31,7 +31,7 @@ from .util import (
 
         ValidationError,
     )
-from .dlg import Hint, SEVERITY_MAP
+from .dlg import Hint, SEVERITY_MAP, SignaturesDialog
 from .dlg import PanelLog, SEVERITY_ERR, SEVERITY_LOG
 from .book import EditorDoc
 #from .tree import TreeMan  # imported on access
@@ -456,11 +456,16 @@ class Language:
                 if ed.get_prop(PROP_HANDLE_SELF) == _reqpos.h_ed:
                     hint = msg.get_hint_str()
                     if hint:
-                        hint = replace_unbracketed(hint, ',', ',\n\t', brackets={'{':'}', '[':']'})
-                        caret_x, caret_y = _reqpos.carets[0][:2]
+                        #hint = replace_unbracketed(hint, ',', ',\n\t', brackets={'{':'}', '[':']'})
+                        #caret_x, caret_y = _reqpos.carets[0][:2]
                         # 8 - default duration
-                        msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
+                        #msg_status_alt(hint, 8, pos=HINTPOS_TEXT_BRACKET, x=caret_x, y=caret_y)
+                        
+                        SignaturesDialog.set_text(msg.get_signatures())
+                        SignaturesDialog.show()
+                        
                     else:
+                        SignaturesDialog.hide()
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Signature help - no info')
 
         #GOTOs
@@ -1538,3 +1543,4 @@ def parse_headers(fp, _class=HTTPMessage):
     header_bytes = b''.join(headers)
     hstring = header_bytes.decode('iso-8859-1')
     return email.parser.Parser(_class=_class).parsestr(hstring), header_bytes
+

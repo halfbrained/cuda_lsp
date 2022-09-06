@@ -11,7 +11,7 @@ from cudax_lib import _json_loads
 from cudax_lib import get_translation
 _ = get_translation(__file__)  # I18N
 
-from .dlg import Hint
+from .dlg import Hint, SignaturesDialog
 from .util import (
         lex2langid,
         update_lexmap,
@@ -392,17 +392,31 @@ class Command:
             caret = ed_self.convert(CONVERT_PIXELS_TO_CARET, x, y, "")
             self.call_hover(ed_self, caret)
 
-    @command
+    #@command
     def on_func_hint(self, ed_self):
         doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang  and  ed_self.get_prop(PROP_FOCUSED):
             doc.lang.request_sighelp(doc)
             return True
+            
+    def on_caret_slow(self, ed_self):
+        if SignaturesDialog.is_visible():
+            self.on_func_hint(ed_self)
+            
+    def on_scroll(self, ed_self):
+        if SignaturesDialog.is_visible():
+            SignaturesDialog.hide()
 
     def on_goto_def(self, ed_self):
         self.call_definition(ed_self)
 
+    def on_app_deactivate(self, ed_self):
+        SignaturesDialog.hide()
+        
     def on_tab_change(self, ed_self):
+        if SignaturesDialog.is_visible():
+            SignaturesDialog.hide()
+        
         doc = self.book.get_doc(ed_self)
         if doc  and  doc.lang:
             doc.lang.on_ed_shown(doc)
@@ -456,6 +470,7 @@ class Command:
             from .dlg import PanelLog
 
             PanelLog.on_theme_change()
+            SignaturesDialog.on_theme_change()
 
 
     def on_key(self, ed_self, key, state):
@@ -464,7 +479,12 @@ class Command:
             if Hint.is_visible():
                 Hint.hide()
                 return False
-
+            if SignaturesDialog.is_visible():
+                SignaturesDialog.hide()
+                return False
+        elif key in (38,40) and 'c' not in state and 's' not in state and 'a' not in state:
+            if SignaturesDialog.is_visible():
+                SignaturesDialog.hide()
 
     def on_exit(self, *args, **vargs):
         #### save state before exiting
