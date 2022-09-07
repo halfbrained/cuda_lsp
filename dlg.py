@@ -868,7 +868,7 @@ class SignaturesDialog:
         # (save value to variable, set to 0, then restore from variable after ed.focus())
         if api_ver >= '1.0.429':
             cls.dim_unfocused_value = ed.get_prop(PROP_DIM_UNFOCUSED)
-            print('setting from ',cls.dim_unfocused_value, 'to 0')
+            #print('setting from ',cls.dim_unfocused_value, 'to 0')
             ed.set_prop(PROP_DIM_UNFOCUSED, 0)
         
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
@@ -919,7 +919,7 @@ class SignaturesDialog:
     def unfocus(cls, tag='', info=''):
         ed.focus()
         if api_ver >= '1.0.429':
-            print('restoring to',cls.dim_unfocused_value)
+            #print('restoring to',cls.dim_unfocused_value)
             ed.set_prop(PROP_DIM_UNFOCUSED, cls.dim_unfocused_value)
         
     @classmethod
