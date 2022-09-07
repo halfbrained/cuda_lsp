@@ -14,6 +14,8 @@ LogMsg = namedtuple('LogMsg', 'msg type severity')
 
 _   = apx.get_translation(__file__)  # I18N
 
+api_ver = app_api_version()
+
 FORM_W = 550
 FORM_H = 350
 BUTTON_H = 20
@@ -740,6 +742,7 @@ class SignaturesDialog:
     memo = None
     spacing = 2
     param_pos = 0
+    dim_unfocused_value = 0
     
     @classmethod
     def move_window(cls):
@@ -860,6 +863,14 @@ class SignaturesDialog:
 
         cls.move_window()
         dlg_proc(cls.h, DLG_PROP_SET, prop={ 'taskbar': 2 })
+        
+        # workaround for `dim_unfocused` option
+        # (save value to variable, set to 0, then restore from variable after ed.focus())
+        if api_ver >= '1.0.429':
+            cls.dim_unfocused_value = ed.get_prop(PROP_DIM_UNFOCUSED)
+            print('setting from ',cls.dim_unfocused_value, 'to 0')
+            ed.set_prop(PROP_DIM_UNFOCUSED, 0)
+        
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
         
         # ed.focus() will be called inside timer (workaround for Linux)
@@ -907,6 +918,9 @@ class SignaturesDialog:
     @classmethod
     def unfocus(cls, tag='', info=''):
         ed.focus()
+        if api_ver >= '1.0.429':
+            print('restoring to',cls.dim_unfocused_value)
+            ed.set_prop(PROP_DIM_UNFOCUSED, cls.dim_unfocused_value)
         
     @classmethod
     def hide(cls, tag='', info=''):
