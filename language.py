@@ -394,8 +394,10 @@ class Language:
                 self.plog.log_str(s, type_='stderr')
 
         except Exception as ex:
-            print(f'QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
-            pass;       LOG and traceback.print_exc()
+            print(f'ERROR: QueuesProcessingError: {LOG_NAME}: {self.lang_str} - {ex}')
+            #pass;
+            #LOG and
+            traceback.print_exc()
 
 
     def _on_lsp_msg(self, msg):
