@@ -103,6 +103,7 @@ class Hint:
         # Editor.set_text_all() doesn't clutter edit history, so no unnecessary stuff is stored in RAM
         edt = Editor(h_ed)
 
+        edt.set_prop(PROP_UNDO_LIMIT, 0)
         edt.set_prop(PROP_GUTTER_ALL, False)
         edt.set_prop(PROP_MINIMAP, False)
         edt.set_prop(PROP_MICROMAP, False)
@@ -418,7 +419,7 @@ class PanelLog:
         # Memo ##########
         n = dlg_proc(self.h_dlg, DLG_CTL_ADD, prop='editor')
         dlg_proc(self.h_dlg, DLG_CTL_PROP_SET, index=n, prop={
-            'name':'memo',
+            'name': 'memo',
             'align': ALIGN_CLIENT,
             'on_menu': self.on_ed_menu,
             })
@@ -431,7 +432,7 @@ class PanelLog:
         # Top buttons #######
         n = dlg_proc(self.h_dlg, DLG_CTL_ADD, prop='statusbar')
         dlg_proc(self.h_dlg, DLG_CTL_PROP_SET, index=n, prop={
-            'name':'statusbar',
+            'name': 'statusbar',
             'align': ALIGN_TOP,
             })
         self._h_sb = dlg_proc(self.h_dlg, DLG_CTL_HANDLE, index=n)
@@ -444,6 +445,7 @@ class PanelLog:
         self._memo.set_prop(PROP_GUTTER_NUM,    False)
         self._memo.set_prop(PROP_GUTTER_STATES, False)
 
+        self._memo.set_prop(PROP_UNDO_LIMIT,        0)
         self._memo.set_prop(PROP_MINIMAP,           False)
         self._memo.set_prop(PROP_MICROMAP,          False)
         self._memo.set_prop(PROP_LAST_LINE_ON_TOP,  False)
@@ -901,6 +903,7 @@ class SignaturesDialog:
             'sp_a': cls.spacing
         })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
+        cls.memo.set_prop(PROP_UNDO_LIMIT, 0)
         cls.memo.set_prop(PROP_LAST_LINE_ON_TOP, False)
         cls.memo.set_prop(PROP_GUTTER_NUM, False)
         cls.memo.set_prop(PROP_GUTTER_STATES, False)
