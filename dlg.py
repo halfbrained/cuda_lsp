@@ -882,17 +882,22 @@ class SignaturesDialog:
     def init_form(cls):
         h=dlg_proc(0, DLG_CREATE)
         dlg_proc(h, DLG_PROP_SET, prop={
-            'cap':'Tooltip', 'topmost':True, 'border': DBORDER_NONE, 'taskbar': 2
+            'cap': 'Tooltip',
+            'topmost': True,
+            'border': DBORDER_NONE,
+            'taskbar': 2,
         })
         cls.h = h
         
         _, cls.font_size = ed.get_prop(PROP_FONT)
-        cls.font_size = int(cls.font_size * ed.get_prop(PROP_SCALE_FONT) / 100)
+        cls.font_size = cls.font_size * ed.get_prop(PROP_SCALE_FONT) // 100
         
-        idc=dlg_proc(h, DLG_CTL_ADD,'editor');
+        idc=dlg_proc(h, DLG_CTL_ADD, 'editor');
         dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
             'border': DBORDER_NONE,
-            'name':'memo', 'align': ALIGN_CLIENT, 'font_size': cls.font_size,
+            'name': 'memo',
+            'align': ALIGN_CLIENT,
+            'font_size': cls.font_size,
             'sp_a': cls.spacing
         })
         cls.memo = Editor(dlg_proc(h, DLG_CTL_HANDLE, index=idc))
