@@ -829,10 +829,9 @@ class SignaturesDialog:
                     skipping = True
                     skipped = -1
                     for j,part in enumerate(parts):
-                        if ':' not in part:
-                            param_name = part
-                        else:
-                            param_name = part.split(':')[0]
+                        if ':' not in part:         param_name = part
+                        else:                       param_name = part.split(':')[0]
+                        if '=' in param_name:   param_name = param_name.split('=')[0]
                         param_name = param_name.strip().replace('*','')
                         first_real_param = sig.parameters[0].label.strip().replace('*','')
                         if skipping and param_name != first_real_param:
