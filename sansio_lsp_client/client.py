@@ -386,7 +386,14 @@ class Client:
                 )
 
         if request.method == "workspace/workspaceFolders":
-            return parse_request(WorkspaceFolders)
+            # return parse_request(WorkspaceFolders)
+            # ... We don't need to parse WorkspaceFolders server's request!
+            # because according to LSP specs "params: none"
+            # Just create empty event and return it
+            event = WorkspaceFolders(result=None)
+            event._id = request.id
+            event._client = self
+            return event
 
         elif request.method == "workspace/configuration":
             return parse_request(ConfigurationRequest)
