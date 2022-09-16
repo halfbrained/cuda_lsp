@@ -5,6 +5,7 @@ from collections import namedtuple, defaultdict
 from cudatext import *
 #import cudatext as ct
 import cudax_lib as apx
+import cudatext_cmd as cmds
 
 # imported on ~access
 #from .sansio_lsp_client.structs import MarkupKind
@@ -577,6 +578,8 @@ class PanelLog:
         for msg in self._msgs:
             if self._filter_msg(msg):
                 self._append_memo_msg(msg)
+
+        self._memo.cmd(cmds.cmd_RepaintEditor)
 
     def log(self, msg):   # events: ShowMessage, LogMessage
         severity_str = SEVERITY_MAP[msg.type.value]
