@@ -1430,12 +1430,12 @@ class CompletionMan:
                 lex)
 
             word = self._get_word(x0, y0)
-
-            if not word: return # defective caret pos
-            word1, word2 = word
-
-            x1 = x0-len(word1)
-            x2 = x0+len(word2)
+            if word:
+                word1, word2 = word
+                x1 = x0-len(word1)
+                x2 = x0+len(word2)
+            else:
+                x1 = x2 = x0
             y1 = y2 = y0
 
             if (item.insertText  and
@@ -1448,6 +1448,9 @@ class CompletionMan:
         _line_txt = ed.get_text_line(y2)
         is_bracket_follows = len(_line_txt) > x2  and  _line_txt[x2] == '('
         # main edit
+        padding = ' '*(x2-len(_line_txt)) if len(_line_txt) < x2 else ''
+        if padding: # to support virtual caret
+            ed.insert(x1,y1, padding)
         new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if (is_callable and not is_bracket_follows) else ''))
         # move caret at ~end of inserted text
         if new_caret:
