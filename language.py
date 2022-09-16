@@ -1453,6 +1453,13 @@ class CompletionMan:
             ed.insert(x1,y1, padding)
             x2 += len(padding)
         new_caret = ed.replace(x1,y1,x2,y2, text)
+        if new_caret:
+            ed.set_caret(*new_caret)
+            #text_has_parentheses = '(' in text
+            #if text_has_parentheses:
+                #ed.set_caret(x1+text.index('(') + 1,  new_caret[1])
+            #else:
+                #ed.set_caret(*new_caret)
         # move caret at ~end of inserted text
         #if new_caret:
             #if not is_callable or is_bracket_follows:
