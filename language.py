@@ -1470,7 +1470,7 @@ class CompletionMan:
         if not 0<=y<ed.get_line_count():
             return
         s = ed.get_text_line(y)
-        if not 0<x<=len(s):
+        if not 0<=x<=len(s):
             return
 
         x0 = x
