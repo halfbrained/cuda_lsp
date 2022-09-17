@@ -1451,6 +1451,7 @@ class CompletionMan:
         padding = ' '*(x2-len(_line_txt)) if len(_line_txt) < x2 else ''
         if padding: # to support virtual caret
             ed.insert(x1,y1, padding)
+            x2 += len(padding)
         new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if (is_callable and not is_bracket_follows) else ''))
         # move caret at ~end of inserted text
         if new_caret:
