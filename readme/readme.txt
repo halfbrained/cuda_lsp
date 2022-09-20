@@ -93,5 +93,9 @@ The possible options are listed in another text file in the LSP Client folder.
 
 About
 -----
-Author: Shovel, https://github.com/halfbrained/
+Authors:
+- Shovel, https://github.com/halfbrained/
+- Yuriy Balyuk, https://github.com/veksha/
+- snippets.py by Alexey Torgashin (CudaText) & helpers
+
 License: MIT
