@@ -1435,14 +1435,14 @@ class CompletionMan:
         if item.insertTextFormat and item.insertTextFormat == InsertTextFormat.SNIPPET:
             if item.textEdit:
                 text = item.textEdit.newText
-                snippet = Snippet(text=text)
+                snippet = Snippet(text=text.split('\n'))
                 x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
                 ed.delete(x1,y1,x2,y2) # delete range
                 snippet.insert(ed)
                 #print("NOTE: Cuda_LSP: snippet was inserted:",text)
             elif item.insertText:
                 text = item.insertText
-                snippet = Snippet(text=text)
+                snippet = Snippet(text=text.split('\n'))
                 ed.delete(x1,y1,x2,y2) # delete word under caret
                 snippet.insert(ed)
                 #print("NOTE: Cuda_LSP: snippet was inserted:",text)
