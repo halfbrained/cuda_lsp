@@ -1439,13 +1439,13 @@ class CompletionMan:
                 x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
                 ed.delete(x1,y1,x2,y2) # delete range
                 snippet.insert(ed)
-                print("NOTE: Cuda_LSP: snippet was inserted:",text)
+                #print("NOTE: Cuda_LSP: snippet was inserted:",text)
             elif item.insertText:
                 text = item.insertText
                 snippet = Snippet(text=text)
                 ed.delete(x1,y1,x2,y2) # delete word under caret
                 snippet.insert(ed)
-                print("NOTE: Cuda_LSP: snippet was inserted:",text)
+                #print("NOTE: Cuda_LSP: snippet was inserted:",text)
             #else:
                 #text = item.label
         else: # InsertTextFormat.PLAIN_TEXT
