@@ -96,6 +96,6 @@ About
 Authors:
 - Shovel, https://github.com/halfbrained/
 - Yuriy Balyuk, https://github.com/veksha/
-- snippets.py by Alexey Torgashin (CudaText) & helpers
+- snippet.py by Alexey Torgashin (CudaText) & helpers
 
 License: MIT
