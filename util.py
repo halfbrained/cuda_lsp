@@ -47,7 +47,7 @@ def ed_uri(ed):
         #return 'file://'+ed.get_filename()
         return path_to_uri(fn)
     else:
-        return 'untitled://'+ed.get_prop(ct.PROP_TAB_TITLE)
+        return 'file:///'+ed.get_prop(ct.PROP_TAB_TITLE)
 
 def uri_to_path(uri):
 
