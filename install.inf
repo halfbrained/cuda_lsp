@@ -100,9 +100,8 @@ method=dbg_show_docs
 
 [item73]
 section=commands
-caption=LSP Client\Debug: view server responses (current server)
+caption=LSP Client\Debug: View server responses (current server)
 method=dbg_show_msg
-
 
 
 [item100]
