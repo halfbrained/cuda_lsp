@@ -1,4 +1,7 @@
 
+2022.09.20
++ add: support 'snippets' from servers, using code from 'Snippets' plugin (by @veksha)
+
 2022.09.16
 - fix: bug with Bash server (by @veksha)
 
