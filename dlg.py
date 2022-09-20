@@ -611,6 +611,7 @@ class PanelLog:
         self._msgs.clear()
         self._update_memo()
         self._update_counts()
+        self._update_sidebar()
 
     def toggle_wrap(self):
         self._is_wrap = not self._is_wrap
@@ -622,7 +623,8 @@ class PanelLog:
 
     def _update_sidebar(self):
         if self._h_btn_sidebar:
-            button_proc(self._h_btn_sidebar, BTN_SET_OVERLAY, str(len(self._msgs)))
+            overlay_text = str(len(self._msgs)) if len(self._msgs) > 0 else '' # clear if zero
+            button_proc(self._h_btn_sidebar, BTN_SET_OVERLAY, overlay_text)
 
     def _append_memo_msg(self, msg):
         _nline = self._memo_pos[1]
