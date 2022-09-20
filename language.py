@@ -58,6 +58,8 @@ from .sansio_lsp_client.structs import (
         WorkspaceFolder,
         InsertTextFormat,
     )
+    
+from .snip.snippet import Snippet
 
 import traceback
 import datetime
@@ -1410,56 +1412,69 @@ class CompletionMan:
 
         if int(items_msg_id) != message_id:
             return
+            
+        _carets = ed.get_carets()
+        x0,y0, _x1,_y1 = _carets[0]
+
+        lex = ed.get_prop(PROP_LEXER_FILE, '')
+        self._nonwords = appx.get_opt(
+            'nonword_chars', '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
+            appx.CONFIG_LEV_ALL, ed, lex)
+        
+        word = self._get_word(x0, y0)
+        if word:
+            word1, word2 = word
+            x1 = x0-len(word1)
+            x2 = x0+len(word2)
+        else:
+            x1 = x2 = x0
+        y1 = y2 = y0
 
         item = items[item_ind]
 
-        # find position of main edit and new 'text'
-        if item.textEdit:
-            x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
-            text = item.textEdit.newText
-        else: # no textEdit, just using .label
-            _carets = ed.get_carets()
-            x0,y0, _x1,_y1 = _carets[0]
-
-            lex = ed.get_prop(PROP_LEXER_FILE, '')
-            self._nonwords = appx.get_opt(
-                'nonword_chars',
-                '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
-                appx.CONFIG_LEV_ALL,
-                ed,
-                lex)
-
-            word = self._get_word(x0, y0)
-            if word:
-                word1, word2 = word
-                x1 = x0-len(word1)
-                x2 = x0+len(word2)
-            else:
-                x1 = x2 = x0
-            y1 = y2 = y0
-
-            if (item.insertText  and
-                    (item.insertTextFormat is None or item.insertTextFormat != InsertTextFormat.SNIPPET)):
+        if item.insertTextFormat and item.insertTextFormat == InsertTextFormat.SNIPPET:
+            if item.textEdit:
+                text = item.textEdit.newText
+                snippet = Snippet(text=text)
+                x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+                ed.delete(x1,y1,x2,y2) # delete range
+                snippet.insert(ed)
+                print("NOTE: Cuda_LSP: snippet was inserted:",text)
+            elif item.insertText:
                 text = item.insertText
-            else:
-                text = item.label
-
-        is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
-        _line_txt = ed.get_text_line(y2)
-        is_bracket_follows = len(_line_txt) > x2  and  _line_txt[x2] == '('
-        # main edit
-        padding = ' '*(x2-len(_line_txt)) if len(_line_txt) < x2 else ''
-        if padding: # to support virtual caret
-            ed.insert(x1,y1, padding)
-            x2 += len(padding)
-        new_caret = ed.replace(x1,y1,x2,y2, text + ('()' if (is_callable and not is_bracket_follows) else ''))
-        # move caret at ~end of inserted text
-        if new_caret:
-            if not is_callable or is_bracket_follows:
+                snippet = Snippet(text=text)
+                ed.delete(x1,y1,x2,y2) # delete word under caret
+                snippet.insert(ed)
+                print("NOTE: Cuda_LSP: snippet was inserted:",text)
+            #else:
+                #text = item.label
+        else: # InsertTextFormat.PLAIN_TEXT
+            # find position of main edit and new 'text'
+            if item.textEdit:
+                x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+                text = item.textEdit.newText
+            else: # no textEdit, just using .label
+                if not item.insertText:
+                    text = item.label
+                else: # insertText
+                    text = item.insertText
+                    
+            #is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
+            _line_txt = ed.get_text_line(y2)
+            #is_bracket_follows = len(_line_txt) > x2  and  _line_txt[x2] == '('
+            # main edit
+            padding = ' '*(x2-len(_line_txt)) if len(_line_txt) < x2 else ''
+            if padding: # to support virtual caret
+                ed.insert(x1,y1, padding)
+                x2 += len(padding)
+            new_caret = ed.replace(x1,y1,x2,y2, text)
+            # move caret at ~end of inserted text
+            if new_caret:
                 ed.set_caret(*new_caret)
-            else:
-                ed.set_caret(new_caret[0] - 1,  new_caret[1])
-
+                #if not is_callable or is_bracket_follows:
+                    #ed.set_caret(*new_caret)
+                #else:
+                    #ed.set_caret(new_caret[0] - 1,  new_caret[1])
 
         # additinal edits
         if item.additionalTextEdits:
