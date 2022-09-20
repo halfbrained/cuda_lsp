@@ -413,9 +413,13 @@ class PanelLog:
         file_open(fn)
         ed.set_caret(0, line)
         ed.focus()
+        
+    def on_show(self, *args, **vargs):
+        timer_proc(TIMER_START_ONE, self._scroll_to_end, 50, tag='')
 
     def _init_panel(self):
         self.h_dlg = dlg_proc(0, DLG_CREATE)
+        dlg_proc(self.h_dlg, DLG_PROP_SET, prop={ 'on_show': self.on_show })
 
         # Memo ##########
         n = dlg_proc(self.h_dlg, DLG_CTL_ADD, prop='editor')
@@ -625,10 +629,14 @@ class PanelLog:
         if self._h_btn_sidebar:
             overlay_text = str(len(self._msgs)) if len(self._msgs) > 0 else '' # clear if zero
             button_proc(self._h_btn_sidebar, BTN_SET_OVERLAY, overlay_text)
+            
+    def _scroll_to_end(self, *args, **vargs):
+        self._memo.cmd(cmds.cCommand_GotoTextEnd)
 
     def _append_memo_msg(self, msg):
         _nline = self._memo_pos[1]
         newpos = self._memo.insert(*self._memo_pos, msg.msg)
+        self._scroll_to_end()
 
         if newpos is not None:
             self._memo_pos = newpos
