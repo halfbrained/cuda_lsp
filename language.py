@@ -426,8 +426,11 @@ class Language:
             reqpos = self.request_positions.pop(msg.message_id, None)
             if items:
                 if reqpos:
-                    compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                    self._last_complete = compl.show_complete(msg.message_id, items)
+                    try:
+                        compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
+                        self._last_complete = compl.show_complete(msg.message_id, items)
+                    except AssertionError as e:
+                        print("NOTE:",e)
             else:
                 msg_status(f'{LOG_NAME}: {self.lang_str}: Completion - no info')
 
