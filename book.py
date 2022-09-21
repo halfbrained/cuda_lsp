@@ -224,6 +224,10 @@ class EditorDoc:
     #def apply_edit(ed: Editor, edit: TextEdit):
     def apply_edit(ed, edit):
         x1,y1,x2,y2 = EditorDoc.range2carets(edit.range)
+        
+        while ed.get_line_count() <= y2:
+            ed.set_text_line(-2, '')
+        
         if x1==x2 and y1==y2:
             #NOTE: need 'insert' because cant `replace()'` beyond text end
             ed.insert(x1,y1, edit.newText)
