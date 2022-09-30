@@ -580,6 +580,10 @@ class Language:
 
 
     def on_close(self, eddoc):
+        # clean up diagnostics img dictionary
+        h_ed = eddoc.ed.get_prop(PROP_HANDLE_SELF)
+        self.diagnostics_man._decor_serverity_ims.pop(h_ed, None)
+
         if self.client.is_initialized:
             opts = self.scfg.method_opts(METHOD_DID_CLOSE, eddoc)
             if opts is not None  and  eddoc.lang is not None: # lang check -- is opened
