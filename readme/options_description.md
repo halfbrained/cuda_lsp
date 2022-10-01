@@ -66,3 +66,4 @@
         * operator
         * typeparameter
 
+* auto_append_bracket - after selecting a method in code completion listbox try to append parentheses automatically if they are missing
