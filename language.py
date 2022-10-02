@@ -1472,6 +1472,7 @@ class CompletionMan:
         
         #line_current = ed.get_text_line(y0, max_len=1000).strip()
         word = get_word(x0, y0)
+        word1 = word2 = ''
         if word:
             word1, word2 = word
             
@@ -1504,8 +1505,18 @@ class CompletionMan:
 
         #filtered_items = sorted(items, key=lambda i: i.sortText or i.label)
         #print(">>> items[0]:", items[0])
-
-        words = ['{}\t{}\t{}|{}'.format(item.label, item.kind and item.kind.name.lower() or '', message_id, i)
+        
+        def add_html_tags(text, item_kind, filter_text):
+            #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
+            if filter_text:
+                pos = text.lower().find(filter_text.lower())
+                if pos >= 0:    text = text[:pos]+'<b>'+text[pos:pos+len(filter_text)]+'</b>'+text[pos+len(filter_text):]
+            return '<html>'+text
+        
+        words = ['{}\t{}\t{}|{}'.format(
+                    add_html_tags(item.label, item.kind, word1),
+                    item.kind and item.kind.name.lower() or '', message_id, i
+                    )
                     for i,item in enumerate(filtered_items)]
 
         # results are already seem to be sorted by .sortText
