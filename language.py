@@ -1507,6 +1507,7 @@ class CompletionMan:
         #print(">>> items[0]:", items[0])
         
         def add_html_tags(text, item_kind, filter_text):
+            if api_ver < '1.0.431':    return text
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
             if filter_text:
                 pos = text.lower().find(filter_text.lower())
