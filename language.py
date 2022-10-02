@@ -1510,7 +1510,9 @@ class CompletionMan:
             if api_ver < '1.0.431':    return text
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
             if filter_text:
-                pos = text.lower().find(filter_text.lower())
+                pos = text.find(filter_text) # case-sensitive
+                if pos == -1: # if not found try case-insensitive
+                    pos = text.lower().find(filter_text.lower())
                 if pos >= 0:    text = text[:pos]+'<b>'+text[pos:pos+len(filter_text)]+'</b>'+text[pos+len(filter_text):]
             return '<html>'+text
         
