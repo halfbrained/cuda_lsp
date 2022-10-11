@@ -157,6 +157,10 @@ class Language:
         self._closed = False
         self.sock = None
         self.process = None
+        
+        self._reader = None
+        self._writer = None
+        self._err = None
 
         self._read_q = queue.Queue()
         self._send_q = queue.Queue()
