@@ -429,10 +429,13 @@ class Language:
             msg.reply(folders=self.workspace_folders)
 
         elif msgtype == events.Completion:
-            items = msg.completion_list.items
-            #print('msg.completion_list.isIncomplete:',msg.completion_list.isIncomplete)
-            pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
-            reqpos = self.request_positions.pop(msg.message_id, None)
+            if msg.completion_list:
+                items = msg.completion_list.items
+                pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
+                reqpos = self.request_positions.pop(msg.message_id, None)
+                #print('msg.completion_list.isIncomplete:',msg.completion_list.isIncomplete)
+            else:
+                items = None
             if items:
                 if reqpos:
                     try:
