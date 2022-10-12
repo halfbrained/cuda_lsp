@@ -320,8 +320,7 @@ class Command:
             newuri = ed_uri(ed_self)
             if doc.uri != newuri:   # if uri changed (new file) - close old, open new
                 pass;       LOG and print(f'* uri change: {doc.uri} => {newuri}')
-                if doc.lang:
-                    doc.lang.on_close(doc)
+                self.on_close(ed_self)
                 self.on_open(ed_self)
             elif doc.lang: # just saved to same file
                 doc.lang.on_save(doc)

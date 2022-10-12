@@ -735,14 +735,22 @@ class Language:
             uri,targetrange = link_to_target(items)
 
         targetpath = uri_to_path(uri)
-
-        if not os.path.isfile(targetpath):
-            print('NOTE: ' + _('{}: {} - file does not exist: {!r}, uri:{!r}').format(
-                    LOG_NAME, self.lang_str, targetpath, uri))
-
-        # open file:  in embedded first
         target_line = max(0, targetrange.start.line-3)
         target_caret = (targetrange.start.character, targetrange.start.line)
+
+        if not os.path.isfile(targetpath):
+            # check whether we are in unsaved tab
+            fn = os.path.split(targetpath)[1]
+            tab_title = ed.get_prop(PROP_TAB_TITLE)
+            if ed.get_filename() == '' and fn == tab_title:
+                ed.set_caret(*target_caret)
+                ed.set_prop(PROP_LINE_TOP, target_line)
+                return
+            else:
+                print('NOTE: ' + _('{}: {} - file does not exist: {!r}, uri:{!r}').format(
+                        LOG_NAME, self.lang_str, targetpath, uri))
+
+        # open file:  in embedded first
         try:
             if reqpos:
                 nline = None
