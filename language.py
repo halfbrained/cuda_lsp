@@ -383,8 +383,12 @@ class Language:
 
                 events = self.client.recv(data, errors=errors)
 
+                limit = 100 # limit characters of the error message
                 for err in errors:
-                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
+                    err_str = str(err)
+                    if len(err_str) > limit:
+                        err_str = err_str[:limit] + '...'
+                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {err_str}')
                     pass;       LOG and self.plog.log_str(f'{err}', type_='dbg', severity=SEVERITY_ERR)
 
                 errors.clear()
