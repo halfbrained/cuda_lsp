@@ -2,9 +2,11 @@
 2022.10.13
 - fix: handling of untitled tabs; bonus: LSP goto features (definition/references) are now working inside unsaved tabs too (by @veksha)
 - fix: too many errors when server's .exe file is missed (by @veksha)
+- fix: in some cases, gutter icons appear black / not inited (by @veksha)
+- fix: on_state must not be 'lazy'
 
 2022.09.20
-+ add: support 'snippets' from servers, using code from 'Snippets' plugin (by @veksha)
++ add: support 'snippets' from servers, re-using code from 'Snippets' plugin (by @veksha)
 
 2022.09.16
 - fix: bug with Bash server (by @veksha)
