@@ -690,47 +690,51 @@ class Language:
 
 
     def on_complete(self, eddoc):
-        on_complete_kind = app_proc(PROC_GET_AUTOCOMPLETION_INVOKE, 0)
         
-        # try to complete from cached data (_last_complete)
-        if on_complete_kind != 'c' and self._last_complete and not self._last_complete.is_incomplete:
-            _, message_id, items, filtered_items, carets, _, line_prev, is_incomplete = self._last_complete
-            x1,y1, _,_ = ed.get_carets()[0]
-            x2,y2, _,_ = carets[0]
-            
-            # check if left side of line was not changed
-            line_current = ed.get_text_line(y2, max_len=1000)[:x2]
-            
-            #print(line_prev.strip())
-            if line_prev.strip() == line_current.strip():
-                word = get_word(x1, y1)
-                if word:
-                    word1part, word2part = word
-                else:
-                    word1part = word2part = ''
-                word_len = len(word1part) + len(word2part)
+        def can_use_cached():
+            on_complete_kind = app_proc(PROC_GET_AUTOCOMPLETION_INVOKE, 0)
+            if on_complete_kind != 'c' and self._last_complete and not self._last_complete.is_incomplete:
+                _, message_id, items, filtered_items, carets, _, line_prev, is_incomplete = self._last_complete
+                x1,y1, _,_ = ed.get_carets()[0]
+                x2,y2, _,_ = carets[0]
                 
-                filtered_items = list(filter(lambda i: word1part in i.label, filtered_items))
+                # check if left side of line was not changed
+                line_current = ed.get_text_line(y2, max_len=1000)[:x2]
                 
-                if filtered_items: # if cache has word then continue, else - send request
-                    text_between_last_pos = ed.get_text_substr(x1,y1,x2,y2).strip()
-                    if text_between_last_pos == '':
-                        text_between_last_pos = ed.get_text_substr(x2,y2,x1,y1).strip()
-                        
-                    whitespace_walk = text_between_last_pos == ''
-                    if (whitespace_walk and word_len == 0):
-                        #print("using cache! (whitespace_walk)")
-                        compl = CompletionMan(carets)
-                        self._last_complete = compl.show_complete(message_id, items, self._last_complete.is_incomplete)
-                        return True
+                if line_prev.strip() == line_current.strip():
+                    word = get_word(x1, y1)
+                    if word:
+                        word1part, word2part = word
+                    else:
+                        word1part = word2part = ''
+                    word_len = len(word1part) + len(word2part)
                     
-                    crossed_word_boundary = any(char in text_between_last_pos for char in get_nonwords_chars())
-                    #print("x1/x2",x1,x2)
-                    if not crossed_word_boundary and (y1 == y2) and (x1 >= x2) and (x1 <= x2 + word_len):
-                        #print("using cache!")
-                        compl = CompletionMan(carets)
-                        self._last_complete = compl.show_complete(message_id, items, self._last_complete.is_incomplete)
-                        return True
+                    filtered_items = list(filter(lambda i: word1part in i.label, filtered_items))
+                    
+                    if filtered_items: # if cache still has something to offer
+                        text_between_last_pos = ed.get_text_substr(x1,y1,x2,y2).strip()
+                        if text_between_last_pos == '':
+                            text_between_last_pos = ed.get_text_substr(x2,y2,x1,y1).strip()
+                            
+                        whitespace_walk = text_between_last_pos == ''
+                        if (whitespace_walk and word_len == 0):
+                            #print("using cache! (whitespace_walk)")
+                            return True
+                        
+                        crossed_word_boundary = any(char in text_between_last_pos for char in get_nonwords_chars())
+                        if not crossed_word_boundary and (y1 == y2) and (x1 >= x2) and (x1 <= x2 + word_len):
+                            #print("using cache!")
+                            return True
+        
+        cache_enabled = True # TODO: add config option?
+        if cache_enabled and can_use_cached():
+            compl = CompletionMan(self._last_complete.carets)
+            self._last_complete = compl.show_complete(
+                self._last_complete.message_id,
+                self._last_complete.items,
+                self._last_complete.is_incomplete
+            )
+            return True
     
         # cache can't be used -> request data from server
         id, pos = self._action_by_name(METHOD_COMPLETION, eddoc)
