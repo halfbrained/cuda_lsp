@@ -511,7 +511,8 @@ class Language:
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Document formatting - no info')
 
         elif msgtype == events.PublishDiagnostics:
-            msg.uri = normalize_drive_letter(msg.uri)
+            if IS_WIN:
+                msg.uri = normalize_drive_letter(msg.uri)
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
 
         elif msgtype == events.ConfigurationRequest:
