@@ -63,6 +63,12 @@ def collapse_path(path):
     if path  and  (path + os.sep).startswith(USER_DIR + os.sep):
         path = path.replace(USER_DIR, '~', 1)
     return path
+    
+def normalize_drive_letter(path):    
+    parts = path.split("file:///")
+    if len(parts) == 2 and parts[0] == '' and len(parts[1]) >= 2 and parts[1][1] == ':':
+        path = "file:///" + parts[1][:1].upper() + parts[1][1:]
+    return path
 
 def command(f):
     def d(*args, **vargs): #SKIP
