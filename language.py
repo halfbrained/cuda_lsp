@@ -699,7 +699,8 @@ class Language:
                 x2,y2, _,_ = carets[0]
                 
                 # check if left side of line was not changed
-                line_current = ed.get_text_line(y2, max_len=1000)[:x2]
+                line_current = ed.get_text_line(y2, max_len=1000)
+                line_current = line_current[:x2] if line_current is not None else ''
                 
                 if line_prev.strip() == line_current.strip():
                     word = get_word(x1, y1)
@@ -1460,8 +1461,8 @@ class CompletionMan:
         self.h_ed = h_ed or ed.get_prop(PROP_HANDLE_SELF)
         
         x,y, _,_ = carets[0]
-        self.line_str = ed.get_text_line(y,max_len=1000)[:x]
-        #print('self.line_str=',self.line_str)
+        self.line_str = ed.get_text_line(y,max_len=1000)
+        self.line_str = self.line_str[:x] if self.line_str is not None else ''
 
     def filter_startswith(self, item, word):
         if item.filterText:
