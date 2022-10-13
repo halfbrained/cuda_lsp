@@ -1,4 +1,7 @@
 
+2022.10.13
+- fix: handling of untitled tabs; bonus: LSP goto features (definition/references) are now working inside unsaved tabs too (by @veksha)
+
 2022.09.20
 + add: support 'snippets' from servers, using code from 'Snippets' plugin (by @veksha)
 
