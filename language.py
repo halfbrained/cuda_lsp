@@ -26,6 +26,7 @@ from .util import (
         path_to_uri,
         langid2lex,
         collapse_path,
+        normalize_drive_letter,
         replace_unbracketed,
         TimerScheduler,
 
@@ -510,6 +511,7 @@ class Language:
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Document formatting - no info')
 
         elif msgtype == events.PublishDiagnostics:
+            msg.uri = normalize_drive_letter(msg.uri)
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
 
         elif msgtype == events.ConfigurationRequest:
