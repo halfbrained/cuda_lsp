@@ -741,7 +741,7 @@ class Language:
         if not os.path.isfile(targetpath):
             # check whether we are in unsaved tab
             fn = os.path.split(targetpath)[1]
-            tab_title = ed.get_prop(PROP_TAB_TITLE)
+            tab_title = ed.get_prop(PROP_TAB_TITLE).lstrip('*')
             if ed.get_filename() == '' and fn == tab_title:
                 ed.set_caret(*target_caret)
                 ed.set_prop(PROP_LINE_TOP, target_line)
