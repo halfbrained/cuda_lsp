@@ -709,7 +709,7 @@ class Language:
                         word1part = word2part = ''
                     word_len = len(word1part) + len(word2part)
                     
-                    filtered_items = list(filter(lambda i: word1part in i.label, filtered_items))
+                    filtered_items = list(filter(lambda i: word1part.lower() in i.label.lower(), filtered_items))
                     
                     if filtered_items: # if cache still has something to offer
                         text_between_last_pos = ed.get_text_substr(x1,y1,x2,y2).strip()
