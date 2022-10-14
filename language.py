@@ -68,6 +68,7 @@ import traceback
 import datetime
 
 LOG = False
+LOG_CACHE = False
 DBG = LOG
 LOG_NAME = 'LSP'
 
@@ -444,7 +445,7 @@ class Language:
                 if reqpos:
                     try:
                         compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                        #print("using fresh results.","items:",len(items)," incomplete:",msg.completion_list.isIncomplete)
+                        pass;       LOG_CACHE and print("using fresh results.","items:",len(items)," incomplete:",msg.completion_list.isIncomplete)
                         self._last_complete = compl.show_complete(msg.message_id, items, msg.completion_list.isIncomplete)
                     except AssertionError as e:
                         print("NOTE:",e)
@@ -719,12 +720,12 @@ class Language:
                             
                         whitespace_walk = text_between_last_pos == ''
                         if (whitespace_walk and word_len == 0):
-                            #print("using cache! (whitespace_walk)")
+                            pass;       LOG_CACHE and print("using cache! (whitespace_walk)")
                             return True
                         
                         crossed_word_boundary = any(char in text_between_last_pos for char in get_nonwords_chars())
                         if not crossed_word_boundary and (y1 == y2) and (x1 >= x2) and (x1 <= x2 + word_len):
-                            #print("using cache!")
+                            pass;       LOG_CACHE and print("using cache!")
                             return True
         
         cache_enabled = True # TODO: add config option?
