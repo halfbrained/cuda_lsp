@@ -728,8 +728,7 @@ class Language:
                             pass;       LOG_CACHE and print("using cache!")
                             return True
         
-        cache_enabled = True # TODO: add config option?
-        if cache_enabled and can_use_cached():
+        if CompletionMan.use_cache and can_use_cached():
             compl = CompletionMan(self._last_complete.carets)
             self._last_complete = compl.show_complete(
                 self._last_complete.message_id,
@@ -1453,6 +1452,8 @@ class ServerConfig:
 
 class CompletionMan:
     auto_append_bracket = True
+    hard_filter = False
+    use_cache = True
     
     def __init__(self, carets=None, h_ed=None):
         assert len(carets) == 1, 'no autocomplete for multi-carets'
@@ -1492,9 +1493,12 @@ class CompletionMan:
             #if self.carets != [(x0-len(word1), y0, _x1, _y1)] and line_current!='':      return # caret moved
             
             #filtered_items = items
-            filtered_items = list(filter(lambda i: word1.lower() in i.label.lower(), items))
+            if CompletionMan.hard_filter:
+                filtered_items = list(filter(lambda i: i.label.startswith(word1), items))
+                #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
+            else:
+                filtered_items = list(filter(lambda i: word1.lower() in i.label.lower(), items))
             
-            #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
             
             filtered_items = sorted(filtered_items,
                                     key=lambda i:

@@ -67,3 +67,7 @@
         * typeparameter
 
 * auto_append_bracket - after selecting a method in code completion listbox try to append parentheses automatically if they are missing
+
+* hard_filter - autocompletion items will be filtered more strictly (only from beginning of the word and only same letter case).
+
+* use_cache - simple caching of autocompletion results. improves speed.
