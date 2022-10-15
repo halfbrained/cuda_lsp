@@ -762,14 +762,11 @@ class SignaturesDialog:
     @classmethod
     def move_window(cls):
         if cls.h and cls.memo:
-            desktop_x, desktop_y, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+            mon_x1, mon_y1, mon_x2, mon_y2 = app_proc(PROC_COORD_MONITOR,0)
+            screen_w, screen_h = (mon_x2 - mon_x1, mon_y2 - mon_y1)
             
-            width = desktop_w
-            #if width > desktop_w:
-                #width = desktop_w
-
             dlg_proc(cls.h, DLG_CTL_PROP_SET, name='memo', prop={
-                'w': width, 'h': desktop_h
+                'w': screen_w, 'h': screen_h
             })
             wrapped_lines = 0
             while True:
@@ -780,28 +777,19 @@ class SignaturesDialog:
                     break 
             
             max_line_len = 10
-            lines = cls.memo.get_text_all().split('\n')
-            #for line in lines:
-                #max_line_len = max(max_line_len, len(line))
             for line in wrap_info:
                 max_line_len = max(max_line_len, line['len'])
 
             cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
             ed_cell_x, ed_cell_y = ed.get_prop(PROP_CELL_SIZE, 0)
-            #h = len(lines) * cell_y + (cls.spacing*4)
-            h = (wrapped_lines or len(lines)) * cell_y + (cls.spacing*4)
+            h = wrapped_lines * cell_y + (cls.spacing*4)
             w = max_line_len * cell_x + (cls.spacing*4)
-            #w = width
             
             caret_x, caret_y = ed.get_carets()[0][:2]
             
             # caret x/y to screen x/y
-            xy = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y)
-            if not xy:  x, y = 0, 0
-            else:       x, y = xy
-            xy = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y)
-            if not xy:  x, y = 0, 0
-            else:       x, y = xy
+            x, y = ed.convert(CONVERT_CARET_TO_PIXELS, caret_x, caret_y) or (0, 0)
+            x, y = ed.convert(CONVERT_LOCAL_TO_SCREEN, x, y) or (0, 0)
             
             # offset x position in hope that parameter in tooltip will be close to caret pos
             #if cls.param_pos:
@@ -817,14 +805,14 @@ class SignaturesDialog:
                         break
             
             # do not allow to move behind screen edges
-            _y = y-cell_y*(wrapped_lines or len(lines))-cls.spacing*6
+            _y = y-cell_y*wrapped_lines-cls.spacing*6
             if _y >= 0:     y = _y
             else:           y = y+ed_cell_y+cls.spacing*2
 
-            if y < desktop_y:     y = desktop_y
-            if x + w > desktop_w:
-                x = desktop_w - w
-            if x < desktop_x:   x = desktop_x
+            if x + w > mon_x1+screen_w:
+                x = mon_x1+screen_w - w
+            if x < mon_x1:   x = mon_x1
+            if y < mon_y1:   y = mon_y1
             
             dlg_proc(cls.h, DLG_PROP_SET, prop={ 'color': cls.color_bg })
             pos_str = '{},{},{},{}'.format(x,y,w,h)
