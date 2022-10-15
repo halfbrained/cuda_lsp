@@ -1466,11 +1466,13 @@ class CompletionMan:
         self.line_str = ed.get_text_line(y,max_len=1000)
         self.line_str = self.line_str[:x] if self.line_str is not None else ''
 
-    def filter_startswith(self, item, word):
-        if item.filterText:
-            return item.filterText.startswith(word)
+    def filter(self, item, word):
+        s1 = item.filterText if item.filterText else item.label
+        s2 = word
+        if CompletionMan.hard_filter:
+            return s1.startswith(s2)
         else:
-            return item.label.startswith(word)
+            return s2.lower() in s1.lower()
     
     def show_complete(self, message_id, items, is_incomplete):
         
@@ -1493,12 +1495,7 @@ class CompletionMan:
             #if self.carets != [(x0-len(word1), y0, _x1, _y1)] and line_current!='':      return # caret moved
             
             #filtered_items = items
-            if CompletionMan.hard_filter:
-                filtered_items = list(filter(lambda i: i.label.startswith(word1), items))
-                #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
-            else:
-                filtered_items = list(filter(lambda i: word1.lower() in i.label.lower(), items))
-            
+            filtered_items = list(filter(lambda i: self.filter(i, word1), items))
             
             filtered_items = sorted(filtered_items,
                                     key=lambda i:
@@ -1527,10 +1524,11 @@ class CompletionMan:
             if api_ver < '1.0.431':    return text
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
             if filter_text:
-                pos = text.find(filter_text) # case-sensitive
                 pos_bracket = text.find('(')
+                s = text if pos_bracket == -1 else text[:pos_bracket] 
+                pos = s.find(filter_text) # case-sensitive
                 if pos == -1: # if not found try case-insensitive
-                    pos = text.lower().find(filter_text.lower())
+                    pos = s.lower().find(filter_text.lower())
                 hilite_end = pos + len(filter_text)
                 if pos >= 0:
                     _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
