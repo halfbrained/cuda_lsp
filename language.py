@@ -1528,9 +1528,25 @@ class CompletionMan:
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
             if filter_text:
                 pos = text.find(filter_text) # case-sensitive
+                pos_bracket = text.find('(')
                 if pos == -1: # if not found try case-insensitive
                     pos = text.lower().find(filter_text.lower())
-                if pos >= 0:    text = text[:pos]+'<b>'+text[pos:pos+len(filter_text)]+'</b>'+text[pos+len(filter_text):]
+                hilite_end = pos + len(filter_text)
+                if pos >= 0:
+                    _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+                    c1 = appx.int_to_html_color(_colors['ListFontHilite']['color'])
+                    c2 = appx.int_to_html_color(_colors['ButtonFontDisabled']['color'])
+                    if pos_bracket > hilite_end:
+                        parts = [ (text[:pos],''), (text[pos:hilite_end],c1),
+                                  (text[hilite_end:pos_bracket],''), (text[pos_bracket:], c2) ]
+                    elif pos_bracket > 0:
+                        parts = [ (text[:pos_bracket],''), (text[pos_bracket:pos],c2),
+                                  (text[pos:hilite_end],c1), (text[hilite_end:],c2) ]
+                    else: parts = [ (text[:pos],''), (text[pos:hilite_end],c1), (text[hilite_end:],'') ]
+                    text = ''
+                    for p in parts:
+                        if p[1]:    text += '<font color="{}">{}</font>'.format(p[1], p[0])
+                        else:       text += p[0]
             return '<html>'+text
         
         words = ['{}\t{}\t{}|{}'.format(
