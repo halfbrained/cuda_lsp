@@ -1520,6 +1520,10 @@ class CompletionMan:
         #filtered_items = sorted(items, key=lambda i: i.sortText or i.label)
         #print(">>> items[0]:", items[0])
         
+        _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        c1 = appx.int_to_html_color(_colors['ListFontHilite']['color'])
+        c2 = appx.int_to_html_color(_colors['ButtonFontDisabled']['color'])
+        
         def add_html_tags(text, item_kind, filter_text):
             if api_ver < '1.0.431':    return text
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
@@ -1531,9 +1535,6 @@ class CompletionMan:
                     pos = s.lower().find(filter_text.lower())
                 hilite_end = pos + len(filter_text)
                 if pos >= 0:
-                    _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
-                    c1 = appx.int_to_html_color(_colors['ListFontHilite']['color'])
-                    c2 = appx.int_to_html_color(_colors['ButtonFontDisabled']['color'])
                     if pos_bracket > hilite_end:
                         parts = [ (text[:pos],''), (text[pos:hilite_end],c1),
                                   (text[hilite_end:pos_bracket],''), (text[pos_bracket:], c2) ]
@@ -1547,9 +1548,20 @@ class CompletionMan:
                         else:       text += p[0]
             return '<html>'+text
         
+        def short_version(s):
+            s = s.replace('function', 'func')
+            s = s.replace('variable', 'var')
+            s = s.replace('constant', 'const')
+            s = s.replace('typeparameter', 'typepar')
+            s = s.replace('reference', 'ref')
+            s = s.replace('keyword', 'keyw')
+            s = s.replace('interface', 'intf')
+            s = s.replace('interface', 'intf')
+            return s
+        
         words = ['{}\t{}\t{}|{}'.format(
                     add_html_tags(item.label, item.kind, word1),
-                    item.kind and item.kind.name.lower() or '', message_id, i
+                    short_version(item.kind and item.kind.name.lower() or ''), message_id, i
                     )
                     for i,item in enumerate(filtered_items)]
 
