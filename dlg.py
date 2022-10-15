@@ -848,7 +848,8 @@ class SignaturesDialog:
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
-                cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=cls.color_dimmed)
+                #cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=cls.color_dimmed)
+                cls.memo.dim(DIM_ADD, i, i, 150)
             if activeParameter is not None and sig.parameters is not None and len(sig.parameters) > activeParameter:
                 
                 param = sig.parameters[activeParameter].label
