@@ -1529,25 +1529,23 @@ class CompletionMan:
         def add_html_tags(text, item_kind, filter_text):
             if api_ver < '1.0.433':    return text
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
-            if filter_text:
-                pos_bracket = text.find('(')
-                s = text if pos_bracket == -1 else text[:pos_bracket] 
-                pos = s.find(filter_text) # case-sensitive
-                if pos == -1: # if not found try case-insensitive
-                    pos = s.lower().find(filter_text.lower())
-                hilite_end = pos + len(filter_text)
-                if pos >= 0:
-                    if pos_bracket >= hilite_end:
-                        parts = [ (text[:pos],''), (text[pos:hilite_end],c1),
-                                  (text[hilite_end:pos_bracket],''), (text[pos_bracket:], c2) ]
-                    elif pos_bracket > 0:
-                        parts = [ (text[:pos_bracket],''), (text[pos_bracket:pos],c2),
-                                  (text[pos:hilite_end],c1), (text[hilite_end:],c2) ]
-                    else: parts = [ (text[:pos],''), (text[pos:hilite_end],c1), (text[hilite_end:],'') ]
-                    text = ''
-                    for p in parts:
-                        if p[1]:    text += '<font color="{}">{}</font>'.format(p[1], p[0])
-                        else:       text += p[0]
+            pos_bracket = text.find('(')
+            s = text if pos_bracket == -1 else text[:pos_bracket] 
+            pos = s.find(filter_text) # case-sensitive
+            if pos == -1: # if not found try case-insensitive
+                pos = s.lower().find(filter_text.lower())
+            hilite_end = pos + len(filter_text)
+            if pos_bracket >= hilite_end:
+                parts = [ (text[:pos],''), (text[pos:hilite_end],c1),
+                          (text[hilite_end:pos_bracket],''), (text[pos_bracket:], c2) ]
+            elif pos_bracket > 0:
+                parts = [ (text[:pos_bracket],''), (text[pos_bracket:pos],c2),
+                          (text[pos:hilite_end],c1), (text[hilite_end:],c2) ]
+            else: parts = [ (text[:pos],''), (text[pos:hilite_end],c1), (text[hilite_end:],'') ]
+            text = ''
+            for p in parts:
+                if p[1]:    text += '<font color="{}">{}</font>'.format(p[1], p[0])
+                else:       text += p[0]
             return '<html>'+text
         
         def short_version(s):
