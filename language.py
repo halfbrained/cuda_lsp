@@ -1525,7 +1525,7 @@ class CompletionMan:
         c2 = appx.int_to_html_color(_colors['ButtonFontDisabled']['color'])
         
         def add_html_tags(text, item_kind, filter_text):
-            if api_ver < '1.0.431':    return text
+            if api_ver < '1.0.433':    return text
             #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
             if filter_text:
                 pos_bracket = text.find('(')
