@@ -1469,6 +1469,8 @@ class CompletionMan:
     def filter(self, item, word):
         s1 = item.filterText if item.filterText else item.label
         s2 = word
+        pos_bracket = s1.find('(')
+        s1 = s1 if pos_bracket == -1 else s1[:pos_bracket]
         if CompletionMan.hard_filter:
             return s1.startswith(s2)
         else:
@@ -1522,7 +1524,7 @@ class CompletionMan:
         
         _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         c1 = appx.int_to_html_color(_colors['ListFontHilite']['color'])
-        c2 = appx.int_to_html_color(_colors['ButtonFontDisabled']['color'])
+        c2 = appx.int_to_html_color(_colors['ListCompleteParams']['color'])
         
         def add_html_tags(text, item_kind, filter_text):
             if api_ver < '1.0.433':    return text
