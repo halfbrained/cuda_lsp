@@ -845,6 +845,7 @@ class SignaturesDialog:
         cls.param_pos = 0
         cls.memo.set_prop(PROP_RO, False)
         cls.memo.set_text_all('')
+        cls.memo.dim(DIM_DELETE_ALL)
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
