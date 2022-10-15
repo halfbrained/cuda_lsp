@@ -1,4 +1,7 @@
 
+2022.10.15
++ add: when "function params" text is too long, e.g. for 'open(...)' in Python, then tooltip wraps (by @veksha)
+
 2022.10.13
 - fix: Windows: compare filenames which differ in casing (by @veksha)
 - fix: handling of untitled tabs; bonus: LSP goto features (definition/references) are now working inside unsaved tabs too (by @veksha)
