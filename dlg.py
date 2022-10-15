@@ -753,7 +753,7 @@ class SignaturesDialog:
     color_dimmed = apx.html_color_to_int('909090')
     color_hilite = apx.html_color_to_int('0000FF')
     h = None
-    memo = None
+    memo: Editor = None
     spacing = 2
     param_pos = 0
     dim_unfocused_value = 0
