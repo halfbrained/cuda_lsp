@@ -1535,7 +1535,7 @@ class CompletionMan:
                     pos = s.lower().find(filter_text.lower())
                 hilite_end = pos + len(filter_text)
                 if pos >= 0:
-                    if pos_bracket > hilite_end:
+                    if pos_bracket >= hilite_end:
                         parts = [ (text[:pos],''), (text[pos:hilite_end],c1),
                                   (text[hilite_end:pos_bracket],''), (text[pos_bracket:], c2) ]
                     elif pos_bracket > 0:
