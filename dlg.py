@@ -757,19 +757,41 @@ class SignaturesDialog:
     spacing = 2
     param_pos = 0
     dim_unfocused_value = 0
+    wrap_info_loaded = False
     
     @classmethod
     def move_window(cls):
         if cls.h and cls.memo:
+            desktop_x, desktop_y, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+            
+            width = desktop_w
+            #if width > desktop_w:
+                #width = desktop_w
+
+            dlg_proc(cls.h, DLG_CTL_PROP_SET, name='memo', prop={
+                'w': width, 'h': desktop_h
+            })
+            wrapped_lines = 0
+            while True:
+                app_idle()
+                if cls.wrap_info_loaded:
+                    wrap_info = cls.memo.get_wrapinfo()
+                    wrapped_lines = len(wrap_info)
+                    break 
+            
             max_line_len = 10
             lines = cls.memo.get_text_all().split('\n')
-            for line in lines:
-                max_line_len = max(max_line_len, len(line))
+            #for line in lines:
+                #max_line_len = max(max_line_len, len(line))
+            for line in wrap_info:
+                max_line_len = max(max_line_len, line['len'])
 
             cell_x, cell_y = cls.memo.get_prop(PROP_CELL_SIZE, 0)
             ed_cell_x, ed_cell_y = ed.get_prop(PROP_CELL_SIZE, 0)
-            h = len(lines) * cell_y + (cls.spacing*4)
+            #h = len(lines) * cell_y + (cls.spacing*4)
+            h = (wrapped_lines or len(lines)) * cell_y + (cls.spacing*4)
             w = max_line_len * cell_x + (cls.spacing*4)
+            #w = width
             
             caret_x, caret_y = ed.get_carets()[0][:2]
             
@@ -782,14 +804,23 @@ class SignaturesDialog:
             else:       x, y = xy
             
             # offset x position in hope that parameter in tooltip will be close to caret pos
-            if cls.param_pos:
-                x = x - cls.param_pos*cell_x
+            #if cls.param_pos:
+                #x = x - cls.param_pos*cell_x
+            markers = cls.memo.attr(MARKERS_GET)
+            for marker in markers:
+                if marker[0] == 1:
+                    xy = cls.memo.convert(CONVERT_CARET_TO_PIXELS, marker[1]+1, marker[2])
+                    if xy:
+                        param_pos, _ = xy
+                        param_len = marker[3]
+                        x = x - (param_pos+(param_len*cell_x//2)) + cell_x
+                        break
             
             # do not allow to move behind screen edges
-            _y = y-cell_y*len(lines)-cls.spacing*6
+            _y = y-cell_y*(wrapped_lines or len(lines))-cls.spacing*6
             if _y >= 0:     y = _y
             else:           y = y+ed_cell_y+cls.spacing*2
-            desktop_x, desktop_y, desktop_w, desktop_h = app_proc(PROC_COORD_MONITOR,0)
+
             if y < desktop_y:     y = desktop_y
             if x + w > desktop_w:
                 x = desktop_w - w
@@ -835,7 +866,7 @@ class SignaturesDialog:
                 param = sig.parameters[activeParameter].label
                 if isinstance(param, tuple):
                     x1, x2 = param
-                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite)
+                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite, tag=1)
                     cls.param_pos = x1
                 elif isinstance(param, str):
                     parts = re.split(r'\(|\)|,(?![^[]*\])', sig.label)
@@ -855,7 +886,7 @@ class SignaturesDialog:
                         else:
                             skipping = False
                         if j-skipped == activeParameter+1:
-                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=cls.color_hilite)
+                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=cls.color_hilite, tag=1)
                             cls.param_pos = pos
                             break
                         pos += len(part)+1
@@ -865,16 +896,17 @@ class SignaturesDialog:
 
     @classmethod
     def show(cls):
+        cls.wrap_info_loaded = False
         if cls.h is None:
             cls.h, cls.memo = cls.init_form()
             
         if cls.is_visible():
-            cls.move_window()
             timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
             timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
+            cls.wrap_info_loaded = True
+            cls.move_window()
             return
-
-        cls.move_window()
+        
         dlg_proc(cls.h, DLG_PROP_SET, prop={ 'taskbar': 2 })
         
         # workaround for `dim_unfocused` option
@@ -884,13 +916,18 @@ class SignaturesDialog:
             #print('setting from ',cls.dim_unfocused_value, 'to 0')
             ed.set_prop(PROP_DIM_UNFOCUSED, 0)
         
+        
         dlg_proc(cls.h, DLG_SHOW_NONMODAL)
+        dlg_proc(cls.h, DLG_PROP_SET, prop={
+                    'w': 0, 'h': 0 })
         
         # ed.focus() will be called inside timer (workaround for Linux)
         timer_proc(TIMER_START_ONE, cls.unfocus, 50, tag='')
 
         timer_proc(TIMER_STOP, cls.hide, 8000, tag='')
         timer_proc(TIMER_START_ONE, cls.hide, 8000, tag='')
+        
+        cls.move_window()
         
     @classmethod
     def init_form(cls):
@@ -910,7 +947,7 @@ class SignaturesDialog:
         dlg_proc(cls.h, DLG_CTL_PROP_SET, index=idc, prop={
             'border': DBORDER_NONE,
             'name': 'memo',
-            'align': ALIGN_CLIENT,
+            #'align': ALIGN_CLIENT,
             'font_size': font_size,
             'sp_a': cls.spacing
         })
@@ -928,7 +965,7 @@ class SignaturesDialog:
         cls.memo.set_prop(PROP_SCROLLSTYLE_HORZ, SCROLLSTYLE_HIDE)
         cls.memo.set_prop(PROP_CARET_VIEW, (0, 0, False))
         cls.memo.set_prop(PROP_CARET_VIEW_RO, cls.memo.get_prop(PROP_CARET_VIEW))
-        cls.memo.set_prop(PROP_WRAP, WRAP_OFF)
+        cls.memo.set_prop(PROP_WRAP, WRAP_ON_WINDOW)
         cls.memo.set_prop(PROP_HILITE_CUR_LINE, False)
         cls.memo.set_prop(PROP_THEMED, False)
         
@@ -937,6 +974,7 @@ class SignaturesDialog:
 
     @classmethod
     def unfocus(cls, tag='', info=''):
+        cls.wrap_info_loaded = True
         ed.focus()
         if api_ver >= '1.0.429':
             #print('restoring to',cls.dim_unfocused_value)
