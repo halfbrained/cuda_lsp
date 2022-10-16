@@ -859,7 +859,17 @@ class SignaturesDialog:
                     cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite, tag=1)
                     cls.param_pos = x1
                 elif isinstance(param, str):
-                    parts = re.split(r'\(|\)|,(?![^[]*\])', sig.label)
+                    # replace comma with special char (excluding ones inside square brackets)
+                    brackets = 0
+                    char_list = list(sig.label)
+                    for j,c in enumerate(char_list):
+                        if 0:pass
+                        elif c == '[':    brackets += 1
+                        elif c == ']':    brackets -= 1
+                        elif c == ',':
+                            if brackets <= 0:   char_list[j]=chr(1)
+                    
+                    parts = re.split(r'\(|\)|\x01(?![^[]*\])', ''.join(char_list))
                     pos = 0
                     skipping = True
                     skipped = -1
