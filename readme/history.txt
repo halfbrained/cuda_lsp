@@ -1,4 +1,13 @@
 
+2022.10.16
+Patches by @veksha
++ add: simple caching
++ add: new option: auto_append_bracket (and smart bracket insertion)
++ add: HTML tags support (colors, etc) for completion listbox
++ add: new options: hard_filter and use_cache
++ add: do not search in params (when filtering autocompletion listbox)
++ add: shorted item 'kinds': 'function'->'func', 'variable'->'var' etc
+
 2022.10.15
 + add: when "function params" text is too long, e.g. for 'open(...)' in Python, then tooltip wraps (by @veksha)
 
