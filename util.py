@@ -7,7 +7,6 @@ import cudax_lib as appx
 from .dlg import Hint
 
 USER_DIR = os.path.expanduser('~')
-_nonwords = None
 
 def get_first(gen):
     try:
@@ -44,7 +43,7 @@ def get_word(x, y):
     if not 0<=y<ed.get_line_count():
         return
     s = ed.get_text_line(y)
-    if not 0<x<=len(s):
+    if not 0<=x<=len(s):
         return
 
     x0 = x
@@ -60,16 +59,14 @@ def get_word(x, y):
     return (text1, text2)
 
 def get_nonwords_chars():
-    global _nonwords
-    if _nonwords is None:
-        ed = ct.ed
-        lex = ed.get_prop(ct.PROP_LEXER_FILE, '')
-        _nonwords = appx.get_opt(
-            'nonword_chars',
-            '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
-            appx.CONFIG_LEV_ALL,
-            ed,
-            lex)
+    ed = ct.ed
+    lex = ed.get_prop(ct.PROP_LEXER_FILE, '')
+    _nonwords = appx.get_opt(
+        'nonword_chars',
+        '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
+        appx.CONFIG_LEV_ALL,
+        ed,
+        lex)
     return _nonwords
 
 def _isword(s):

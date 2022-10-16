@@ -1592,13 +1592,10 @@ class CompletionMan:
         x0,y0, _x1,_y1 = _carets[0]
 
         lex = ed.get_prop(PROP_LEXER_FILE, '')
-        self._nonwords = appx.get_opt(
-            'nonword_chars', '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
-            appx.CONFIG_LEV_ALL, ed, lex)
         
         x1 = x2 = x0
         y1 = y2 = y0
-        word = self._get_word(x0, y0)
+        word = get_word(x0, y0)
         if word:
             word1, word2 = word
             x1 = x0-len(word1)
@@ -1651,29 +1648,6 @@ class CompletionMan:
             for edit in item.additionalTextEdits:
                 EditorDoc.apply_edit(ed, edit)
         return True
-
-
-    def _get_word(self, x, y):
-        if not 0<=y<ed.get_line_count():
-            return
-        s = ed.get_text_line(y)
-        if not 0<=x<=len(s):
-            return
-
-        x0 = x
-        while (x0>0) and self._isword(s[x0-1]):
-            x0-=1
-        text1 = s[x0:x]
-
-        x0 = x
-        while (x0<len(s)) and self._isword(s[x0]):
-            x0+=1
-        text2 = s[x:x0]
-
-        return (text1, text2)
-
-    def _isword(self, s):
-        return s not in ' \t'+self._nonwords
 
 
 ### http.client.parse_headers, from  https://github.com/python/cpython/blob/3.9/Lib/http/client.py
