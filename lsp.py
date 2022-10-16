@@ -30,6 +30,8 @@ from .util import (
 #import cuda_project_man
 #from .book import DocBook
 
+from .language import CompletionMan
+
 LOG = False
 LOG_NAME = 'LSP'
 IS_WIN = os.name=='nt'
@@ -66,6 +68,9 @@ opt_tree_types_show = ''
 
 # to close - change lexer (then back)
 opt_manual_didopen = None # debug help "manual_didopen"
+opt_auto_append_bracket = True
+opt_hard_filter = False
+opt_use_cache = True
 
 """
 file:///install.inf
@@ -723,6 +728,9 @@ class Command:
         global opt_lint_underline_style
         global opt_enable_code_tree
         global opt_tree_types_show
+        global opt_auto_append_bracket
+        global opt_hard_filter
+        global opt_use_cache
 
         # general cfg
         if os.path.exists(fn_config):
@@ -745,6 +753,12 @@ class Command:
             opt_hover_additional_commands = j.get('hover_additional_commands', opt_hover_additional_commands)
             opt_cudatext_in_py_env = j.get('cudatext_in_py_env', opt_cudatext_in_py_env)
             opt_lint_type = j.get('lint_type', opt_lint_type)
+            opt_auto_append_bracket = j.get('auto_append_bracket', opt_auto_append_bracket)
+            CompletionMan.auto_append_bracket = opt_auto_append_bracket
+            opt_hard_filter = j.get('hard_filter', opt_hard_filter)
+            CompletionMan.hard_filter = opt_hard_filter
+            opt_use_cache = j.get('use_cache', opt_use_cache)
+            CompletionMan.use_cache = opt_use_cache
 
             opt_enable_code_tree = j.get('enable_code_tree', opt_enable_code_tree)
             opt_tree_types_show = j.get('tree_types_show', opt_tree_types_show)
@@ -827,6 +841,9 @@ class Command:
             'lint_underline_style':      opt_lint_underline_style,
             'enable_code_tree':          opt_enable_code_tree,
             'tree_types_show':           opt_tree_types_show,
+            'auto_append_bracket':       opt_auto_append_bracket,
+            'hard_filter':               opt_hard_filter,
+            'use_cache':                 opt_use_cache,
         }
         if opt_manual_didopen is not None:
             j['manual_didopen'] = opt_manual_didopen

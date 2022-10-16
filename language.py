@@ -22,6 +22,8 @@ from .util import (
         get_first,
         ed_uri,
         get_visible_eds,
+        get_word,
+        get_nonwords_chars,
         uri_to_path,
         path_to_uri,
         langid2lex,
@@ -66,6 +68,7 @@ import traceback
 import datetime
 
 LOG = False
+LOG_CACHE = False
 DBG = LOG
 LOG_NAME = 'LSP'
 
@@ -80,7 +83,7 @@ SNIP_ID = 'cuda_lsp__snip'
 TCP_CONNECT_TIMEOUT = 5     # sec
 MAX_FORMAT_ON_SAVE_WAIT = 1 # sec
 MIN_TIMER_TIME = 10     # ms
-MAX_TIMER_TIME = 250    # ms
+MAX_TIMER_TIME = 10    # ms
 
 GOTO_EVENT_TYPES = {
     events.Definition,
@@ -97,6 +100,7 @@ CALLABLE_COMPLETIONS = {
 }
 
 RequestPos = namedtuple('RequestPos', 'h_ed carets target_pos_caret cursor_ed')
+CachedCompletion = namedtuple('CachedCompletion', 'obj message_id items filtered_items carets h_ed line_str is_incomplete')
 
 GOTO_TITLES = {
     events.Definition:      _('Go to: definition'),
@@ -380,8 +384,12 @@ class Language:
 
                 events = self.client.recv(data, errors=errors)
 
+                limit = 100 # limit characters of the error message
                 for err in errors:
-                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {str(err)[:60]}')
+                    err_str = str(err)
+                    if len(err_str) > limit:
+                        err_str = err_str[:limit] + '...'
+                    msg_status(f'{LOG_NAME}: {self.lang_str}: unsupported msg: {err_str}')
                     pass;       LOG and self.plog.log_str(f'{err}', type_='dbg', severity=SEVERITY_ERR)
 
                 errors.clear()
@@ -426,14 +434,19 @@ class Language:
             msg.reply(folders=self.workspace_folders)
 
         elif msgtype == events.Completion:
-            items = msg.completion_list.items
-            pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
-            reqpos = self.request_positions.pop(msg.message_id, None)
+            if msg.completion_list:
+                items = msg.completion_list.items
+                pass;       LOG and print(f'got completion({len(items)}): {time.time():.3f} {msg.message_id} in {list(self.request_positions)}')
+                reqpos = self.request_positions.pop(msg.message_id, None)
+                #print('msg.completion_list.isIncomplete:',msg.completion_list.isIncomplete)
+            else:
+                items = None
             if items:
                 if reqpos:
                     try:
                         compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
-                        self._last_complete = compl.show_complete(msg.message_id, items)
+                        pass;       LOG_CACHE and print("using fresh results.","items:",len(items)," incomplete:",msg.completion_list.isIncomplete)
+                        self._last_complete = compl.show_complete(msg.message_id, items, msg.completion_list.isIncomplete)
                     except AssertionError as e:
                         print("NOTE:",e)
             else:
@@ -678,17 +691,64 @@ class Language:
 
 
     def on_complete(self, eddoc):
+        
+        def can_use_cached():
+            on_complete_kind = app_proc(PROC_GET_AUTOCOMPLETION_INVOKE, 0)
+            if on_complete_kind != 'c' and self._last_complete and not self._last_complete.is_incomplete:
+                _, message_id, items, filtered_items, carets, _, line_prev, is_incomplete = self._last_complete
+                x1,y1, _,_ = ed.get_carets()[0]
+                x2,y2, _,_ = carets[0]
+                
+                # check if left side of line was not changed
+                line_current = ed.get_text_line(y2, max_len=1000)
+                line_current = line_current[:x2] if line_current is not None else ''
+                
+                if line_prev.strip() == line_current.strip():
+                    word = get_word(x1, y1)
+                    if word:
+                        word1part, word2part = word
+                    else:
+                        word1part = word2part = ''
+                    word_len = len(word1part) + len(word2part)
+                    
+                    filtered_items = list(filter(lambda i: word1part.lower() in i.label.lower(), filtered_items))
+                    
+                    if filtered_items: # if cache still has something to offer
+                        text_between_last_pos = ed.get_text_substr(x1,y1,x2,y2).strip()
+                        if text_between_last_pos == '':
+                            text_between_last_pos = ed.get_text_substr(x2,y2,x1,y1).strip()
+                            
+                        whitespace_walk = text_between_last_pos == ''
+                        if (whitespace_walk and word_len == 0):
+                            pass;       LOG_CACHE and print("using cache! (whitespace_walk)")
+                            return True
+                        
+                        crossed_word_boundary = any(char in text_between_last_pos for char in get_nonwords_chars())
+                        if not crossed_word_boundary and (y1 == y2) and (x1 >= x2) and (x1 <= x2 + word_len):
+                            pass;       LOG_CACHE and print("using cache!")
+                            return True
+        
+        if CompletionMan.use_cache and can_use_cached():
+            compl = CompletionMan(self._last_complete.carets)
+            self._last_complete = compl.show_complete(
+                self._last_complete.message_id,
+                self._last_complete.items,
+                self._last_complete.is_incomplete
+            )
+            return True
+    
+        # cache can't be used -> request data from server
         id, pos = self._action_by_name(METHOD_COMPLETION, eddoc)
+        #print('pos',pos)
         if id is not None:
             self._save_req_pos(id=id)
             return True
 
     def on_snippet(self, ed_self, snippet_id, snippet_text): # completion callback
         if snippet_id == SNIP_ID and self._last_complete:
-            compl, message_id, items = self._last_complete
-            compl.do_complete(message_id, snippet_text, items)
-            self._last_complete = None
-            return True
+            compl, message_id, items, filtered_items, _, h_ed, _, is_incomplete = self._last_complete
+            if h_ed == ed.get_prop(PROP_HANDLE_SELF):
+                return compl.do_complete(message_id, snippet_text, filtered_items)
         return False
 
 
@@ -914,7 +974,17 @@ class Language:
         """ save request's caret position, and active editor -- to check if proper editor
         """
         h = ed.get_prop(PROP_HANDLE_SELF)
-        carets = ed.get_carets()
+        
+        # save word's start position
+        x1, y1, _x2, _y2 = ed.get_carets()[0]
+        
+        ## change x to the beginning of the word
+        #word = get_word(x1, y1)
+        #if word and len(word[0]) != 0:
+            #x1 = x1 - len(word[0])
+        
+        carets = [(x1,y1,_x2,_y2)]
+        
         _cursor = app_proc(PROC_GET_MOUSE_POS, '') # screen coords
         cursor_ed = ed.convert(CONVERT_SCREEN_TO_LOCAL, *_cursor)
         _req = RequestPos(h,  carets=carets,  target_pos_caret=target_pos_caret,  cursor_ed=cursor_ed)
@@ -1381,18 +1451,33 @@ class ServerConfig:
 
 
 class CompletionMan:
+    auto_append_bracket = True
+    hard_filter = False
+    use_cache = True
+    
     def __init__(self, carets=None, h_ed=None):
         assert len(carets) == 1, 'no autocomplete for multi-carets'
         assert carets[0][3] == -1, 'no autocomplete for selection'
 
         self.carets = carets
         self.h_ed = h_ed or ed.get_prop(PROP_HANDLE_SELF)
+        
+        x,y, _,_ = carets[0]
+        self.line_str = ed.get_text_line(y,max_len=1000)
+        self.line_str = self.line_str[:x] if self.line_str is not None else ''
 
-    def show_complete(self, message_id, items):
-
-        carets = ed.get_carets()
-
-        if self.carets != carets:       return # caret moved
+    def filter(self, item, word):
+        s1 = item.filterText if item.filterText else item.label
+        s2 = word
+        pos_bracket = s1.find('(')
+        s1 = s1 if pos_bracket == -1 else s1[:pos_bracket]
+        if CompletionMan.hard_filter:
+            return s1.startswith(s2)
+        else:
+            return s2.lower() in s1.lower()
+    
+    def show_complete(self, message_id, items, is_incomplete):
+        
         if self.h_ed != ed.get_prop(PROP_HANDLE_SELF):       return # wrong editor
 
         lex = ed.get_prop(PROP_LEXER_FILE, '')    #NOTE probably no need to check for lexer
@@ -1402,129 +1487,167 @@ class CompletionMan:
 
         _carets = ed.get_carets()
         x0,y0, _x1,_y1 = _carets[0]
-
-        lex = ed.get_prop(PROP_LEXER_FILE, '')
-        self._nonwords = appx.get_opt(
-            'nonword_chars',
-            '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
-            appx.CONFIG_LEV_ALL,
-            ed,
-            lex)
-
-        word = self._get_word(x0, y0)
+        
+        #line_current = ed.get_text_line(y0, max_len=1000).strip()
+        word = get_word(x0, y0)
+        word1 = word2 = ''
         if word:
-            word1, _ = word
-            items = list(filter(lambda i: word1 in i.label, items))
+            word1, word2 = word
+            
+            #if self.carets != [(x0-len(word1), y0, _x1, _y1)] and line_current!='':      return # caret moved
+            
+            #filtered_items = items
+            filtered_items = list(filter(lambda i: self.filter(i, word1), items))
+            
+            filtered_items = sorted(filtered_items,
+                                    key=lambda i:
+                                        (
+                                        i.label == word1,
+                                        word1 in i.label,
+                                        i.label.lower() == word1.lower(),
+                                        i.label.startswith(word1),
+                                        i.label.lower().startswith(word1.lower())
+                                        ),
+                                    reverse=True,
+                                    )
+            if len(word1) == 0 and len(word2) > 0: # we are at the start of the word
+                # update cached caret (so it points to the start of the word)
+                self.carets = [(x0,y0,_x1,_y1)]
+                
+            #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
+        else:
+            #if self.carets != _carets and line_current!='':      return # caret moved
+            filtered_items = items
 
-        words = ['{}\t{}\t{}|{}'.format(item.label, item.kind and item.kind.name.lower() or '', message_id, i)
-                    for i,item in enumerate(items)]
+        #filtered_items = sorted(items, key=lambda i: i.sortText or i.label)
+        #print(">>> items[0]:", items[0])
+        
+        _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
+        c1 = appx.int_to_html_color(_colors['ListFontHilite']['color'])
+        c2 = appx.int_to_html_color(_colors['ListCompleteParams']['color'])
+        
+        def add_html_tags(text, item_kind, filter_text):
+            if api_ver < '1.0.433':    return text
+            #if item_kind in CALLABLE_COMPLETIONS:   text = '<u>'+text+'</u>'
+            pos_bracket = text.find('(')
+            s = text if pos_bracket == -1 else text[:pos_bracket] 
+            pos = s.find(filter_text) # case-sensitive
+            if pos == -1: # if not found try case-insensitive
+                pos = s.lower().find(filter_text.lower())
+            hilite_end = pos + len(filter_text)
+            if pos_bracket >= hilite_end:
+                parts = [ (text[:pos],''), (text[pos:hilite_end],c1),
+                          (text[hilite_end:pos_bracket],''), (text[pos_bracket:], c2) ]
+            elif pos_bracket > 0:
+                parts = [ (text[:pos_bracket],''), (text[pos_bracket:pos],c2),
+                          (text[pos:hilite_end],c1), (text[hilite_end:],c2) ]
+            else: parts = [ (text[:pos],''), (text[pos:hilite_end],c1), (text[hilite_end:],'') ]
+            text = ''
+            for p in parts:
+                if p[1]:    text += '<font color="{}">{}</font>'.format(p[1], p[0])
+                else:       text += p[0]
+            return '<html>'+text
+        
+        def short_version(s):
+            s = s.replace('function', 'func')
+            s = s.replace('variable', 'var')
+            s = s.replace('constant', 'const')
+            s = s.replace('typeparameter', 'typepar')
+            s = s.replace('reference', 'ref')
+            s = s.replace('keyword', 'keyw')
+            s = s.replace('interface', 'intf')
+            return s
+        
+        words = ['{}\t{}\t{}|{}'.format(
+                    add_html_tags(item.label, item.kind, word1),
+                    short_version(item.kind and item.kind.name.lower() or ''), message_id, i
+                    )
+                    for i,item in enumerate(filtered_items)]
 
         # results are already seem to be sorted by .sortText
 
-        sel = get_first(i for i,item in enumerate(items)  if item.preselect is True)
+        sel = get_first(i for i,item in enumerate(filtered_items)  if item.preselect is True)
         sel = sel or 0
 
         ed.complete_alt('\n'.join(words), SNIP_ID, len_chars=0, selected=sel)
-        return (self, message_id, items)
+        
+        #if True:
+        #if is_incomplete:
+            #print("isIncomplete: ", is_incomplete)
+            #return None
+        #else:
+            #print("isIncomplete: ", is_incomplete, ", caching")
+        return CachedCompletion(self, message_id, items, filtered_items, self.carets, self.h_ed, self.line_str, is_incomplete)
 
     #TODO add () and move caret if function?
     def do_complete(self, message_id, snippet_text, items):
         items_msg_id, item_ind = snippet_text.split('|')
-        item_ind = int(item_ind)
-
         if int(items_msg_id) != message_id:
             return
+
+        item_ind = int(item_ind)
+        item = items[item_ind]
             
         _carets = ed.get_carets()
         x0,y0, _x1,_y1 = _carets[0]
 
         lex = ed.get_prop(PROP_LEXER_FILE, '')
-        self._nonwords = appx.get_opt(
-            'nonword_chars', '''-+*=/\()[]{}<>"'.,:;~?!@#$%^&|`…''',
-            appx.CONFIG_LEV_ALL, ed, lex)
         
-        word = self._get_word(x0, y0)
+        x1 = x2 = x0
+        y1 = y2 = y0
+        word = get_word(x0, y0)
         if word:
             word1, word2 = word
             x1 = x0-len(word1)
             x2 = x0+len(word2)
-        else:
-            x1 = x2 = x0
-        y1 = y2 = y0
+        
+        line_txt = ed.get_text_line(y0)
+        is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
+        is_bracket_follows = line_txt[x2:].strip()[:1] == '('
 
-        item = items[item_ind]
-
+        if item.textEdit:
+            # ignore `item.textEdit.range` for now because it may be cached (old and wrong)
+            #x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+            text = item.textEdit.newText
+        elif item.insertText:   text = item.insertText
+        else:                   text = item.label
+        
+        has_brackets = all(b in text for b in '()')
+        if is_bracket_follows and has_brackets and text[-2:] == '()':
+            text = text[:-2]
+        
+        brackets_inserted = False
+        if (
+                CompletionMan.auto_append_bracket
+                and not has_brackets and is_callable
+                and not is_bracket_follows and ('Bash' not in lex)
+           ):
+            text += '()'
+            brackets_inserted = True
+        
         if item.insertTextFormat and item.insertTextFormat == InsertTextFormat.SNIPPET:
-            if item.textEdit:
-                text = item.textEdit.newText
-                snippet = Snippet(text=text.split('\n'))
-                x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
-                ed.delete(x1,y1,x2,y2) # delete range
-                snippet.insert(ed)
-                #print("NOTE: Cuda_LSP: snippet was inserted:",text)
-            elif item.insertText:
-                text = item.insertText
-                snippet = Snippet(text=text.split('\n'))
-                ed.delete(x1,y1,x2,y2) # delete word under caret
-                snippet.insert(ed)
-                #print("NOTE: Cuda_LSP: snippet was inserted:",text)
-            #else:
-                #text = item.label
-        else: # InsertTextFormat.PLAIN_TEXT
-            # find position of main edit and new 'text'
-            if item.textEdit:
-                x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
-                text = item.textEdit.newText
-            else: # no textEdit, just using .label
-                if not item.insertText:
-                    text = item.label
-                else: # insertText
-                    text = item.insertText
-                    
-            #is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
-            _line_txt = ed.get_text_line(y2)
-            #is_bracket_follows = len(_line_txt) > x2  and  _line_txt[x2] == '('
-            # main edit
-            padding = ' '*(x2-len(_line_txt)) if len(_line_txt) < x2 else ''
+            snippet = Snippet(text=text.split('\n'))
+            ed.delete(x1,y1,x2,y2) # delete range
+            snippet.insert(ed)
+            #print("NOTE: Cuda_LSP: snippet was inserted:",text)
+        else: # not snippet (PLAINTEXT)
+            padding = ' '*(x2-len(line_txt)) if len(line_txt) < x2 else ''
             if padding: # to support virtual caret
                 ed.insert(x1,y1, padding)
                 x2 += len(padding)
             new_caret = ed.replace(x1,y1,x2,y2, text)
             # move caret at ~end of inserted text
             if new_caret:
-                ed.set_caret(*new_caret)
-                #if not is_callable or is_bracket_follows:
-                    #ed.set_caret(*new_caret)
-                #else:
-                    #ed.set_caret(new_caret[0] - 1,  new_caret[1])
+                if brackets_inserted:
+                    ed.set_caret(new_caret[0] - 1,  new_caret[1])
+                else:
+                    ed.set_caret(*new_caret)
 
         # additinal edits
         if item.additionalTextEdits:
             for edit in item.additionalTextEdits:
                 EditorDoc.apply_edit(ed, edit)
-
-
-    def _get_word(self, x, y):
-        if not 0<=y<ed.get_line_count():
-            return
-        s = ed.get_text_line(y)
-        if not 0<=x<=len(s):
-            return
-
-        x0 = x
-        while (x0>0) and self._isword(s[x0-1]):
-            x0-=1
-        text1 = s[x0:x]
-
-        x0 = x
-        while (x0<len(s)) and self._isword(s[x0]):
-            x0+=1
-        text2 = s[x:x0]
-
-        return (text1, text2)
-
-    def _isword(self, s):
-        return s not in ' \t'+self._nonwords
+        return True
 
 
 ### http.client.parse_headers, from  https://github.com/python/cpython/blob/3.9/Lib/http/client.py

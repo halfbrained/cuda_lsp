@@ -4,7 +4,7 @@ from difflib import SequenceMatcher
 from cudatext import *
 #from cudax_lib import get_translation
 
-from .util import get_first, lex2langid, ed_uri
+from .util import get_first, lex2langid, ed_uri, get_word
 
 #from .sansio_lsp_client import structs
 
@@ -175,6 +175,11 @@ class EditorDoc:
     def get_docpos(self, caret=None):
         if caret is None: # caret pos
             x1, y1, _x2, _y2 = self.ed.get_carets()[0]
+            
+            ## change x to the beginning of the word
+            #word = get_word(x1, y1)
+            #if word and len(word[0]) != 0:
+                #x1 = x1 - len(word[0])
 
         else:  # mouse pos
             x1, y1 = caret
