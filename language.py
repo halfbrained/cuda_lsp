@@ -60,6 +60,8 @@ from .sansio_lsp_client.structs import (
         FormattingOptions,
         WorkspaceFolder,
         InsertTextFormat,
+        CompletionContext,
+        CompletionTriggerKind,
     )
     
 from .snip.snippet import Snippet
@@ -683,7 +685,17 @@ class Language:
 
             methodAttrName = method_name.split('/')[1]
             clientMethod = getattr(self.client, methodAttrName)
-            id = clientMethod(docpos)
+            
+            if methodAttrName == 'completion':
+                if self._last_complete and self._last_complete.is_incomplete:
+                    triggerKind = CompletionTriggerKind(CompletionTriggerKind.TRIGGER_FOR_INCOMPLETE_COMPLETIONS)
+                else:
+                    triggerKind = CompletionTriggerKind(CompletionTriggerKind.INVOKED)
+                context = CompletionContext(triggerKind=triggerKind)
+                id = clientMethod(docpos, context=context)
+            else:
+                id = clientMethod(docpos)
+            
             self.process_queues()
             pass;       LOG and print(f' >> GUI:sent {method_name} request: {id}, time:{time.time():.3f}')
             return id, (docpos.position.character, docpos.position.line)
