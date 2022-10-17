@@ -1,4 +1,7 @@
 
+2022.10.18
++ add: better support for 'pyright' server: enable cache for this server
+
 2022.10.16
 Patches by @veksha
 + add: simple caching
