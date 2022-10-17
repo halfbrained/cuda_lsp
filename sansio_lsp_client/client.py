@@ -97,7 +97,8 @@ CAPABILITIES = {
             },
             'completionItemKind': {
                 'valueSet': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
-            }
+            },
+            'contextSupport': True,
         },
         'hover': {
             'dynamicRegistration': True,
@@ -554,7 +555,9 @@ class Client:
         params = {}
         params.update(text_document_position.dict())
         if context is not None:
-            params.update(context.dict())
+            params.update( {
+                'context': context.dict(exclude_unset=True)
+            } )
         return self._send_request(method="textDocument/completion", params=params)
 
 # NEW #####################
