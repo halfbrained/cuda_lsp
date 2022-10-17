@@ -846,50 +846,59 @@ class SignaturesDialog:
         cls.memo.set_prop(PROP_RO, False)
         cls.memo.set_text_all('')
         cls.memo.dim(DIM_DELETE_ALL)
+        
+        from .sansio_lsp_client.structs import SignatureInformation
+        sig: SignatureInformation
         for i,sig in enumerate(signatures):
             cls.memo.set_text_line(-2, sig.label)
             if i != activeSignature:
                 #cls.memo.attr(MARKERS_ADD, x=0, y=i, len=len(sig.label), color_font=cls.color_dimmed)
                 cls.memo.dim(DIM_ADD, i, i, 150)
-            if activeParameter is not None and sig.parameters is not None and len(sig.parameters) > activeParameter:
+            
+            if not sig.parameters:  continue
+            
+            if activeParameter is None or activeParameter >= len(sig.parameters):
+                activeParameter = 0
+            
+            activeParameter = sig.activeParameter if sig.activeParameter is not None else activeParameter
+            
+            param = sig.parameters[activeParameter].label
+            if isinstance(param, tuple):
+                x1, x2 = param
+                cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite, tag=1)
+                cls.param_pos = x1
+            elif isinstance(param, str):
+                # replace comma with special char (excluding ones inside square brackets)
+                brackets = 0
+                char_list = list(sig.label)
+                for j,c in enumerate(char_list):
+                    if 0:pass
+                    elif c == '[':    brackets += 1
+                    elif c == ']':    brackets -= 1
+                    elif c == ',':
+                        if brackets <= 0:   char_list[j]=chr(1)
                 
-                param = sig.parameters[activeParameter].label
-                if isinstance(param, tuple):
-                    x1, x2 = param
-                    cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite, tag=1)
-                    cls.param_pos = x1
-                elif isinstance(param, str):
-                    # replace comma with special char (excluding ones inside square brackets)
-                    brackets = 0
-                    char_list = list(sig.label)
-                    for j,c in enumerate(char_list):
-                        if 0:pass
-                        elif c == '[':    brackets += 1
-                        elif c == ']':    brackets -= 1
-                        elif c == ',':
-                            if brackets <= 0:   char_list[j]=chr(1)
-                    
-                    parts = re.split(r'\(|\)|\x01(?![^[]*\])', ''.join(char_list))
-                    pos = 0
-                    skipping = True
-                    skipped = -1
-                    for j,part in enumerate(parts):
-                        if ':' not in part:         param_name = part
-                        else:                       param_name = part.split(':')[0]
-                        if '=' in param_name:   param_name = param_name.split('=')[0]
-                        param_name = param_name.strip().replace('*','')
-                        first_real_param = sig.parameters[0].label.strip().replace('*','')
-                        if skipping and param_name != first_real_param:
-                            skipped += 1
-                            pos += len(part)+1
-                            continue # skip 'self' or 'cls', etc...
-                        else:
-                            skipping = False
-                        if j-skipped == activeParameter+1:
-                            cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=cls.color_hilite, tag=1)
-                            cls.param_pos = pos
-                            break
+                parts = re.split(r'\(|\)|\x01(?![^[]*\])', ''.join(char_list))
+                pos = 0
+                skipping = True
+                skipped = -1
+                for j,part in enumerate(parts):
+                    if ':' not in part:         param_name = part
+                    else:                       param_name = part.split(':')[0]
+                    if '=' in param_name:   param_name = param_name.split('=')[0]
+                    param_name = param_name.strip().replace('*','')
+                    first_real_param = sig.parameters[0].label.strip().replace('*','')
+                    if skipping and param_name != first_real_param:
+                        skipped += 1
                         pos += len(part)+1
+                        continue # skip 'self' or 'cls', etc...
+                    else:
+                        skipping = False
+                    if j-skipped == activeParameter+1:
+                        cls.memo.attr(MARKERS_ADD, x=pos, y=i, len=len(part), color_font=cls.color_hilite, tag=1)
+                        cls.param_pos = pos
+                        break
+                    pos += len(part)+1
         cls.memo.set_prop(PROP_LINE_TOP, 0)
         cls.memo.set_prop(PROP_SCROLL_HORZ, 0)
         cls.memo.set_prop(PROP_RO, True)
