@@ -34,7 +34,7 @@ from .util import (
 
         ValidationError,
     )
-from .dlg import Hint, SEVERITY_MAP, SignaturesDialog
+from .dlg import Hint, SEVERITY_MAP, SignaturesDialog, TYPE_DIAG
 from .dlg import PanelLog, SEVERITY_ERR, SEVERITY_LOG
 from .book import EditorDoc
 #from .tree import TreeMan  # imported on access
@@ -1104,7 +1104,7 @@ class DiagnosticsMan:
                 self.dirtys.add(uri)
 
     def _apply_diagnostics(self, ed, diag_list):
-        self.logger.clear()
+        self.logger.clear_diagnostics()
         if self._linttype  or  self._highlight_bg:
             self._clear_old(ed)
 
@@ -1147,8 +1147,8 @@ class DiagnosticsMan:
                     if not filename_added:
                         filename_added = True
                         fn = ed.get_filename()
-                        self.logger.log_str(f"File: {fn}", type_="Errors", severity=SEVERITY_MAP[d.severity])
-                    self.logger.log_str(f"Line {d.range.start.line+1}: {text}", type_="Errors", severity=SEVERITY_MAP[d.severity])
+                        self.logger.log_str(f"File: {fn}", type_=TYPE_DIAG, severity=SEVERITY_MAP[d.severity])
+                    self.logger.log_str(f"Line {d.range.start.line+1}: {text}", type_=TYPE_DIAG, severity=SEVERITY_MAP[d.severity])
 
                 # gather err ranges
                 for d in diags:

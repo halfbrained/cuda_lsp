@@ -296,6 +296,7 @@ PANEL_LOG_TAG = app_proc(PROC_GET_UNIQUE_TAG, '') # jic
 
 TYPE_MSG = 'type_msgs'
 TYPE_LOG = 'type_logs'
+TYPE_DIAG = 'type_diags'
 
 SEVERITY_ERR = 'svr_err'
 SEVERITY_WRN = 'svr_wrn'
@@ -326,6 +327,7 @@ SEVERITY_IC_PATHS = {
 PANEL_CAPTIONS = {
     TYPE_MSG:       _('Messages'),
     TYPE_LOG:       _('Logs'),
+    TYPE_DIAG:      _('Diagnostics'),
 
     SEVERITY_ERR:   _('Error'),
     SEVERITY_WRN:   _('Warning'),
@@ -611,6 +613,12 @@ class PanelLog:
             self._extra_types.add(type_)
             self._update_sb()
 
+    def clear_diagnostics(self):
+        self._msgs = [ msg for msg in self._msgs if PanelLog.type_captions.get(msg.type, msg.type) != TYPE_DIAG ]
+        self._update_memo()
+        self._update_counts()
+        self._update_sidebar()
+        
     def clear(self):
         self._msgs.clear()
         self._update_memo()
