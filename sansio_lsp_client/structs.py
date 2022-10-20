@@ -407,7 +407,23 @@ class Registration(BaseModel):
     id: str
     method: str
     registerOptions: t.Optional[t.Any]
+    
+class DocumentFilter(BaseModel):
+    language: t.Optional[str]
+    scheme: t.Optional[str]
+    pattern: t.Optional[str]
 
+DocumentSelector = t.List[DocumentFilter]
+
+class CompletionOptionsCompletionItem(BaseModel):
+    labelDetailsSupport: t.Optional[bool]
+
+class CompletionRegistrationOptions(BaseModel):
+    documentSelector: t.Union[DocumentSelector, None]           # from TextDocumentRegistrationOptions
+    triggerCharacters: t.Optional[t.List[str]]                  # from CompletionOptions
+    allCommitCharacters: t.Optional[t.List[str]]                #
+    resolveProvider: t.Optional[bool]                           #
+    completionItem: t.Optional[CompletionOptionsCompletionItem] #
 
 class FormattingOptions(BaseModel):
     tabSize: int

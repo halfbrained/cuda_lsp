@@ -655,7 +655,7 @@ class Command:
 
         names = ['msg|' + str(msg)[:SERVER_RESPONSE_DIALOG_LEN]+'...\t'+type(msg).__name__
                         for msg in lang._dbg_msgs]
-        ind = dlg_menu(DMENU_LIST, names)
+        ind = dlg_menu(DMENU_LIST, names, w = 900)
 
         if ind is not None:
             max_output_width = max(80, ed.get_prop(PROP_SCROLL_HORZ_INFO)['page'])

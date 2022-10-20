@@ -48,6 +48,7 @@ if (ver.major, ver.minor) < (3, 7):
 from .sansio_lsp_client import client as lsp
 from .sansio_lsp_client import events
 from .sansio_lsp_client.structs import (
+        CompletionRegistrationOptions,
         TextDocumentSyncKind,
         Registration,
         DiagnosticSeverity,
@@ -1098,7 +1099,7 @@ class DiagnosticsMan:
         if len(diag_list) > 0  or  self.uri_diags.get(uri):
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
-                if uri == ed_uri(ed):
+                if uri_to_path(uri) == uri_to_path(ed_uri(ed)):
                     self._apply_diagnostics(ed, diag_list)
             else: # not visible, update when visible
                 self.dirtys.add(uri)
@@ -1306,8 +1307,8 @@ class ServerConfig:
         self.capabs = [] # struct.Registration
         self.lang_str = lang_str
 
-        _default_selector = [{'language': langid}  for langid in langids]
-        _default_opts = {'documentSelector': _default_selector}
+        self._default_selector = [{'language': langid}  for langid in langids]
+        _default_opts = {'documentSelector': self._default_selector}
 
         docsync = capabilities.get('textDocumentSync', {})
 
@@ -1370,8 +1371,17 @@ class ServerConfig:
     def on_register(self, dynreg):
         """ process dynamic registration request: RegisterMethodRequest
         """
-        self.capabs.extend(dynreg.registrations)
+        reg: Registration
+        for reg in dynreg.registrations:
+            if reg.method == 'textDocument/completion':
+                if reg.registerOptions:
+                    opts: CompletionRegistrationOptions
+                    opts = CompletionRegistrationOptions.parse_obj(reg.registerOptions)
+                    if opts.documentSelector is None:
+                        opts.documentSelector = self._default_selector
+                        reg.registerOptions = opts.dict()
 
+        self.capabs.extend(dynreg.registrations)
 
     def method_opts(self, method_name, doc=None, ed_self=None, langid=None):
         """ returns: options dict or None
