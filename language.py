@@ -9,7 +9,6 @@ from collections import namedtuple, defaultdict
 
 import email.parser
 import email.message
-from urllib.parse import unquote
 
 from wcmatch.glob import globmatch, GLOBSTAR, BRACE
 
@@ -528,7 +527,6 @@ class Language:
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Document formatting - no info')
 
         elif msgtype == events.PublishDiagnostics:
-            msg.uri = unquote(msg.uri)
             if IS_WIN:
                 msg.uri = normalize_drive_letter(msg.uri)
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
@@ -1101,7 +1099,7 @@ class DiagnosticsMan:
         if len(diag_list) > 0  or  self.uri_diags.get(uri):
             self.uri_diags[uri] = diag_list
             for ed in get_visible_eds():
-                if uri == ed_uri(ed):
+                if uri_to_path(uri) == uri_to_path(ed_uri(ed)):
                     self._apply_diagnostics(ed, diag_list)
             else: # not visible, update when visible
                 self.dirtys.add(uri)
