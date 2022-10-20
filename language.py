@@ -9,6 +9,7 @@ from collections import namedtuple, defaultdict
 
 import email.parser
 import email.message
+from urllib.parse import unquote
 
 from wcmatch.glob import globmatch, GLOBSTAR, BRACE
 
@@ -48,6 +49,7 @@ if (ver.major, ver.minor) < (3, 7):
 from .sansio_lsp_client import client as lsp
 from .sansio_lsp_client import events
 from .sansio_lsp_client.structs import (
+        CompletionRegistrationOptions,
         TextDocumentSyncKind,
         Registration,
         DiagnosticSeverity,
@@ -526,6 +528,7 @@ class Language:
                         msg_status(f'{LOG_NAME}: {self.lang_str}: Document formatting - no info')
 
         elif msgtype == events.PublishDiagnostics:
+            msg.uri = unquote(msg.uri)
             if IS_WIN:
                 msg.uri = normalize_drive_letter(msg.uri)
             self.diagnostics_man.set_diagnostics(uri=msg.uri, diag_list=msg.diagnostics)
@@ -1306,8 +1309,8 @@ class ServerConfig:
         self.capabs = [] # struct.Registration
         self.lang_str = lang_str
 
-        _default_selector = [{'language': langid}  for langid in langids]
-        _default_opts = {'documentSelector': _default_selector}
+        self._default_selector = [{'language': langid}  for langid in langids]
+        _default_opts = {'documentSelector': self._default_selector}
 
         docsync = capabilities.get('textDocumentSync', {})
 
@@ -1370,8 +1373,17 @@ class ServerConfig:
     def on_register(self, dynreg):
         """ process dynamic registration request: RegisterMethodRequest
         """
-        self.capabs.extend(dynreg.registrations)
+        reg: Registration
+        for reg in dynreg.registrations:
+            if reg.method == 'textDocument/completion':
+                if reg.registerOptions:
+                    opts: CompletionRegistrationOptions
+                    opts = CompletionRegistrationOptions.parse_obj(reg.registerOptions)
+                    if opts.documentSelector is None:
+                        opts.documentSelector = self._default_selector
+                        reg.registerOptions = opts.dict()
 
+        self.capabs.extend(dynreg.registrations)
 
     def method_opts(self, method_name, doc=None, ed_self=None, langid=None):
         """ returns: options dict or None

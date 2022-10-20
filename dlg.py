@@ -849,6 +849,8 @@ class SignaturesDialog:
         cls.memo.set_prop(PROP_COLOR, (COLOR_ID_TextBg, cls.color_bg))
 
         signatures, activeSignature, activeParameter = signatures
+        if activeSignature is None or activeSignature >= len(signatures):
+            activeSignature = 0
         
         cls.param_pos = 0
         cls.memo.set_prop(PROP_RO, False)
