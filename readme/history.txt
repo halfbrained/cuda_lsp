@@ -1,6 +1,9 @@
 
+2022.10.20
+- fix: problems with Lua server (by @veksha)
+
 2022.10.18
-+ add: better support for 'pyright' server: enable cache for this server
+- fix: problem with 'pyright' server: must enable cache for this server (by @veksha)
 
 2022.10.16
 Patches by @veksha
