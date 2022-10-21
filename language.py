@@ -1604,6 +1604,8 @@ class CompletionMan:
 
     #TODO add () and move caret if function?
     def do_complete(self, message_id, snippet_text, items):
+        if '|' not in snippet_text:
+            return
         items_msg_id, item_ind = snippet_text.split('|')
         if int(items_msg_id) != message_id:
             return
