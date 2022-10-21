@@ -4,6 +4,7 @@ import socket
 import time
 import queue
 import subprocess
+import re
 from threading import Thread
 from collections import namedtuple, defaultdict
 
@@ -1651,6 +1652,11 @@ class CompletionMan:
             snippet = Snippet(text=text.split('\n'))
             ed.delete(x1,y1,x2,y2) # delete range
             snippet.insert(ed)
+            
+            # move caret inside "()" if snippet is very simple, e.g. "func()"
+            if re.match('^\w+\(\)$', text):
+                new_caret = ed.get_carets()[0]
+                ed.set_caret(new_caret[0]-1, new_caret[1])
             #print("NOTE: Cuda_LSP: snippet was inserted:",text)
         else: # not snippet (PLAINTEXT)
             padding = ' '*(x2-len(line_txt)) if len(line_txt) < x2 else ''
