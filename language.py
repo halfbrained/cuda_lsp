@@ -450,7 +450,8 @@ class Language:
                     try:
                         compl = CompletionMan(carets=reqpos.carets, h_ed=reqpos.h_ed)
                         pass;       LOG_CACHE and print("using fresh results.","items:",len(items)," incomplete:",msg.completion_list.isIncomplete)
-                        self._last_complete = compl.show_complete(msg.message_id, items, msg.completion_list.isIncomplete)
+                        self._last_complete = compl.prepare_complete(msg.message_id, items, msg.completion_list.isIncomplete)
+                        compl.show_complete(self._last_complete.message_id, self._last_complete.filtered_items)
                     except AssertionError as e:
                         print("NOTE:",e)
             else:
@@ -744,11 +745,12 @@ class Language:
         
         if CompletionMan.use_cache and can_use_cached():
             compl = CompletionMan(self._last_complete.carets)
-            self._last_complete = compl.show_complete(
+            self._last_complete = compl.prepare_complete(
                 self._last_complete.message_id,
                 self._last_complete.items,
                 self._last_complete.is_incomplete
             )
+            compl.show_complete(self._last_complete.message_id, self._last_complete.filtered_items)
             return True
     
         # cache can't be used -> request data from server
@@ -1488,6 +1490,10 @@ class CompletionMan:
         x,y, _,_ = carets[0]
         self.line_str = ed.get_text_line(y,max_len=1000)
         self.line_str = self.line_str[:x] if self.line_str is not None else ''
+        
+        _carets = ed.get_carets()
+        x0,y0,_,_ = _carets[0]
+        self.word = get_word(x0, y0)
 
     def filter(self, item, word):
         s1 = item.filterText if item.filterText else item.label
@@ -1499,29 +1505,23 @@ class CompletionMan:
         else:
             return s2.lower() in s1.lower()
     
-    def show_complete(self, message_id, items, is_incomplete):
-        
-        if self.h_ed != ed.get_prop(PROP_HANDLE_SELF):       return # wrong editor
-
+    def prepare_complete(self, message_id, items, is_incomplete):
+        if self.h_ed != ed.get_prop(PROP_HANDLE_SELF):
+            return # wrong editor
         lex = ed.get_prop(PROP_LEXER_FILE, '')    #NOTE probably no need to check for lexer
-
-        if lex is None: return
+        if lex is None:
+            return
         #if not is_lexer_allowed(lex): return
 
         _carets = ed.get_carets()
         x0,y0, _x1,_y1 = _carets[0]
         
-        #line_current = ed.get_text_line(y0, max_len=1000).strip()
-        word = get_word(x0, y0)
         word1 = word2 = ''
-        if word:
-            word1, word2 = word
-            
-            #if self.carets != [(x0-len(word1), y0, _x1, _y1)] and line_current!='':      return # caret moved
-            
+        if self.word:
+            word1, word2 = self.word
             #filtered_items = items
             filtered_items = list(filter(lambda i: self.filter(i, word1), items))
-            
+            #filtered_items = sorted(items, key=lambda i: i.sortText or i.label)
             filtered_items = sorted(filtered_items,
                                     key=lambda i:
                                         (
@@ -1536,15 +1536,16 @@ class CompletionMan:
             if len(word1) == 0 and len(word2) > 0: # we are at the start of the word
                 # update cached caret (so it points to the start of the word)
                 self.carets = [(x0,y0,_x1,_y1)]
-                
-            #filtered_items = list(filter(lambda i: self.filter_startswith(i, word1), items))
         else:
-            #if self.carets != _carets and line_current!='':      return # caret moved
             filtered_items = items
 
-        #filtered_items = sorted(items, key=lambda i: i.sortText or i.label)
-        #print(">>> items[0]:", items[0])
-        
+        return CachedCompletion(self, message_id, items, filtered_items, self.carets, self.h_ed, self.line_str, is_incomplete)
+    
+    def show_complete(self, message_id, items):
+        word1 = ''
+        if self.word:
+            word1, _ = self.word
+            
         _colors = app_proc(PROC_THEME_UI_DICT_GET, '')
         c1 = appx.int_to_html_color(_colors['ListFontHilite']['color'])
         c2 = appx.int_to_html_color(_colors['ListCompleteParams']['color'])
@@ -1585,22 +1586,11 @@ class CompletionMan:
                     add_html_tags(item.label, item.kind, word1),
                     short_version(item.kind and item.kind.name.lower() or ''), message_id, i
                     )
-                    for i,item in enumerate(filtered_items)]
-
-        # results are already seem to be sorted by .sortText
-
-        sel = get_first(i for i,item in enumerate(filtered_items)  if item.preselect is True)
+                    for i,item in enumerate(items)]
+        sel = get_first(i for i,item in enumerate(items)  if item.preselect is True)
         sel = sel or 0
-
-        ed.complete_alt('\n'.join(words), SNIP_ID, len_chars=0, selected=sel)
         
-        #if True:
-        #if is_incomplete:
-            #print("isIncomplete: ", is_incomplete)
-            #return None
-        #else:
-            #print("isIncomplete: ", is_incomplete, ", caching")
-        return CachedCompletion(self, message_id, items, filtered_items, self.carets, self.h_ed, self.line_str, is_incomplete)
+        ed.complete_alt('\n'.join(words), SNIP_ID, len_chars=0, selected=sel)
 
     #TODO add () and move caret if function?
     def do_complete(self, message_id, snippet_text, items):
