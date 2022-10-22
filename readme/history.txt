@@ -1,4 +1,8 @@
 
+2022.10.22
+- fix: problem with TypeScript func-params tooltip
+- fix: with "ui_scale":125, not all buttons in hover dialog are visible
+
 2022.10.20
 - fix: problems with Lua server (by @veksha)
 
