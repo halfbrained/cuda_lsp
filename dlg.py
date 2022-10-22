@@ -878,26 +878,29 @@ class SignaturesDialog:
                 cls.memo.attr(MARKERS_ADD, x=x1, y=i, len=x2-x1, color_font=cls.color_hilite, tag=1)
                 cls.param_pos = x1
             elif isinstance(param, str):
-                # replace comma with special char (excluding ones inside square brackets)
+                # replace comma with special char (excluding ones inside [{()}] brackets)
                 brackets = 0
-                char_list = list(sig.label)
+                signature = sig.label
+                signature = re.sub(".*?\(","", signature, count=1) # remove method name and first bracket '('
+                params_start = len(sig.label) - len(signature) # remember position where parameters start
+                signature = re.sub("\)[^,)]*$","", signature, count=1) # remove last bracket ')' and return value
+                char_list = list(signature)
                 for j,c in enumerate(char_list):
                     if 0:pass
-                    elif c == '[':    brackets += 1
-                    elif c == ']':    brackets -= 1
+                    elif c in '[{(':    brackets += 1
+                    elif c in ']})':    brackets -= 1
                     elif c == ',':
                         if brackets <= 0:   char_list[j]=chr(1)
                 
-                parts = re.split(r'\(|\)|\x01(?![^[]*\])', ''.join(char_list))
-                pos = 0
+                parts = re.split(r'\x01', ''.join(char_list))
+                pos = params_start
                 skipping = True
                 skipped = -1
                 for j,part in enumerate(parts):
-                    if ':' not in part:         param_name = part
-                    else:                       param_name = part.split(':')[0]
-                    if '=' in param_name:   param_name = param_name.split('=')[0]
+                    param_name = re.split(':|=',part)[0]
                     param_name = param_name.strip().replace('*','')
                     first_real_param = sig.parameters[0].label.strip().replace('*','')
+                    first_real_param = re.split(':|=',first_real_param)[0]
                     if skipping and param_name != first_real_param:
                         skipped += 1
                         pos += len(part)+1
