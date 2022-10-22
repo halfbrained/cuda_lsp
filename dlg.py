@@ -186,8 +186,8 @@ class Hint:
                 'p': ed.get_prop(PROP_HANDLE_SELF ), #set parent to Editor handle
                 'x': x,
                 'y': y,
-                'w': w,
-                'h': h,
+                'w': w * _scale_UI_percent // 100,
+                'h': h * _scale_UI_percent // 100,
                 })
 
         cls.caret_cmds = caret_cmds
