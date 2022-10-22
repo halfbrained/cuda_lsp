@@ -1,14 +1,11 @@
 
 2022.10.22
+Patches by @veksha
 - fix: insertion of single item with "autocomplete_commit_single_item":true did not work
+- fix: with "ui_scale":125 not all buttons in hover dialog were visible
 - fix: problem with TypeScript func-params tooltip
-- fix: with "ui_scale":125, not all buttons in hover dialog are visible
-
-2022.10.20
-- fix: problems with Lua server (by @veksha)
-
-2022.10.18
-- fix: problem with 'pyright' server: must enable cache for this server (by @veksha)
+- fix: problems with Lua server
+- fix: problem with Pyright server: must enable cache for this server
 
 2022.10.16
 Patches by @veksha
