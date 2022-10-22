@@ -1,5 +1,6 @@
 
 2022.10.22
+- fix: insertion of single item with "autocomplete_commit_single_item":true did not work
 - fix: problem with TypeScript func-params tooltip
 - fix: with "ui_scale":125, not all buttons in hover dialog are visible
 
