@@ -1610,37 +1610,46 @@ class CompletionMan:
         
         x1 = x2 = x0
         y1 = y2 = y0
-        word = get_word(x0, y0)
-        if word:
-            word1, word2 = word
+        word1 = word2 = ''
+        if self.word:
+            word1, word2 = self.word
             x1 = x0-len(word1)
             x2 = x0+len(word2)
         
         line_txt = ed.get_text_line(y0)
         is_callable = item.kind  and  item.kind in CALLABLE_COMPLETIONS
         is_bracket_follows = line_txt[x2:].strip()[:1] == '('
+        
+        ed.replace(x1,y0,x2,y0,' '*(x2-x1)) # now replace word under caret with spaces!
 
+        cached_x = self.carets[0][0]
+        cached_x_diff = x0-cached_x
         if item.textEdit:
-            # ignore `item.textEdit.range` for now because it may be cached (old and wrong)
-            #x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+            x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
+            x2 = x2 + cached_x_diff +len(word2) # correction of cached (outdated) coords (only x2 is enough?)
             text = item.textEdit.newText
         elif item.insertText:   text = item.insertText
         else:                   text = item.label
         
+        is_snippet = item.insertTextFormat and item.insertTextFormat == InsertTextFormat.SNIPPET
+        
         has_brackets = all(b in text for b in '()')
         if is_bracket_follows and has_brackets and text[-2:] == '()':
             text = text[:-2]
-        
+        if is_bracket_follows and has_brackets and text[-4:] == '($0)':
+            text = text[:-4]
+            
+        last_char_nonword = text[-1:] in get_nonwords_chars()
         brackets_inserted = False
         if (
-                CompletionMan.auto_append_bracket
+                CompletionMan.auto_append_bracket and not last_char_nonword
                 and not has_brackets and is_callable
                 and not is_bracket_follows and ('Bash' not in lex)
            ):
             text += '()'
             brackets_inserted = True
         
-        if item.insertTextFormat and item.insertTextFormat == InsertTextFormat.SNIPPET:
+        if is_snippet:
             snippet = Snippet(text=text.split('\n'))
             ed.delete(x1,y1,x2,y2) # delete range
             snippet.insert(ed)
