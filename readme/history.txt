@@ -1,9 +1,10 @@
 
-2022.10.22
+2022.10.23
 Patches by @veksha
+- fix: problem with TypeScript: wrong autocompletion of "import appendFile" + unwanted brackets
 - fix: insertion of single item with "autocomplete_commit_single_item":true did not work
 - fix: with "ui_scale":125 not all buttons in hover dialog were visible
-- fix: problem with TypeScript func-params tooltip
+- fix: problem with TypeScript: func-params tooltip
 - fix: problems with Lua server
 - fix: problem with Pyright server: must enable cache for this server
 
