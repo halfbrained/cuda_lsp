@@ -268,8 +268,6 @@ class Client:
 
     # response from server
     def _handle_response(self, response: Response) -> Event:
-        assert response.id is not None
-        request = self._unanswered_requests.pop(response.id)
 
         # FIXME: The errors have meanings.
         if response.error is not None:
@@ -277,6 +275,9 @@ class Client:
             err = ResponseError.parse_obj(response.error)
             err.message_id = response.id
             return err
+        
+        assert response.id is not None, "response without id"
+        request = self._unanswered_requests.pop(response.id)
 
         event: Event
 
