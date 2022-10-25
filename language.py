@@ -1174,13 +1174,13 @@ class DiagnosticsMan:
 
 
                 # set bookmark or decor
+                text = '\n'.join(msg_lines)
                 if self._linttype == DiagnosticsMan.LINT_DECOR:
                     if decor_severity == 9:
                         decor_severity = DIAG_DEFAULT_SEVERITY
                     tooltip = chr(1)+text if api_ver >= '1.0.427' else ''
                     ed.decor(DECOR_SET, line=nline, image=decor_im_map[decor_severity], text=tooltip, tag=DIAG_BM_TAG)
                 else:
-                    text = '\n'.join(msg_lines)
                     ed.bookmark(BOOKMARK_SET, nline=nline, nkind=kind, text=text, tag=DIAG_BM_TAG)
             #end for line_diags
 
