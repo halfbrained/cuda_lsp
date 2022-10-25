@@ -1687,6 +1687,7 @@ class CompletionMan:
 
 _MAXLINE = 65536
 _MAXHEADERS = 100
+_SUPPORTED_HEADERS = (b'content-length', b'content-type')
 
 class HTTPMessage(email.message.Message):
     # XXX The only usage of this method is in
@@ -1729,6 +1730,9 @@ def parse_headers(fp, _class=HTTPMessage):
     while True:
         line = fp.readline(_MAXLINE + 1)
 
+        if not line.lower().startswith(_SUPPORTED_HEADERS) and line not in (b'\r\n', b'\n', b''):
+            # skip unsupported lines (like 'echo' in batch files)
+            continue
         if len(line) > _MAXLINE:
             #raise LineTooLong("header line")
             raise Exception("LineTooLong: header line")
