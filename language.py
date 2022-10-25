@@ -326,6 +326,9 @@ class Language:
             while self._reader:
                 try:
                     headers, header_bytes = parse_headers(self._reader)  # type: ignore
+                except ConnectionResetError as ex:
+                    print(f"{LOG_NAME}: {self.lang_str} - tcp connection lost:", ex)
+                    break
                 except Exception as ex:
                     print(f'{LOG_NAME}: {self.lang_str} - header parse error: {ex}')
                     pass;       LOG and traceback.print_exc()
