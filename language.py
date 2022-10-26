@@ -325,7 +325,7 @@ class Language:
         try:
             while self._reader:
                 try:
-                    headers, header_bytes = parse_headers(self._reader)  # type: ignore
+                    headers, header_bytes, not_headers = parse_headers(self._reader)  # type: ignore
                 except ConnectionResetError as ex:
                     print(f"{LOG_NAME}: {self.lang_str} - tcp connection lost:", ex)
                     break
@@ -335,6 +335,10 @@ class Language:
                     continue
 
                 pass;       LOG and print(f'{LOG_NAME}: receive time: {time.time():.3f}')
+                
+                if not_headers:
+                    for s in not_headers:
+                        self.plog.log_str(s.decode(), type_='stdout')
 
                 if header_bytes == b'':
                     pass;       LOG and print('NOTE: reader stopping')
@@ -1687,7 +1691,7 @@ class CompletionMan:
 
 _MAXLINE = 65536
 _MAXHEADERS = 100
-_SUPPORTED_HEADERS = (b'content-length', b'content-type')
+_SUPPORTED_HEADERS = (b'content-length:', b'content-type:')
 
 class HTTPMessage(email.message.Message):
     # XXX The only usage of this method is in
@@ -1726,12 +1730,14 @@ def parse_headers(fp, _class=HTTPMessage):
     to parse.
     """
     headers = []
+    not_headers = []
 
     while True:
         line = fp.readline(_MAXLINE + 1)
 
         if not line.lower().startswith(_SUPPORTED_HEADERS) and line not in (b'\r\n', b'\n', b''):
             # skip unsupported lines (like 'echo' in batch files)
+            not_headers.append(line)
             continue
         if len(line) > _MAXLINE:
             #raise LineTooLong("header line")
@@ -1744,5 +1750,5 @@ def parse_headers(fp, _class=HTTPMessage):
             break
     header_bytes = b''.join(headers)
     hstring = header_bytes.decode('iso-8859-1')
-    return email.parser.Parser(_class=_class).parsestr(hstring), header_bytes
+    return email.parser.Parser(_class=_class).parsestr(hstring), header_bytes, not_headers
 
