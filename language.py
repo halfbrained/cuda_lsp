@@ -1731,11 +1731,16 @@ def parse_headers(fp, _class=HTTPMessage):
     """
     headers = []
     not_headers = []
+    headers_found = False
 
     while True:
         line = fp.readline(_MAXLINE + 1)
+        if not line:
+            break
 
-        if not line.lower().startswith(_SUPPORTED_HEADERS) and line not in (b'\r\n', b'\n', b''):
+        if line.lower().startswith(_SUPPORTED_HEADERS):
+            headers_found = True
+        if not headers_found:
             # skip unsupported lines (like 'echo' in batch files)
             not_headers.append(line)
             continue
