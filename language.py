@@ -1318,7 +1318,7 @@ class ServerConfig:
         self.lang_str = lang_str
 
         self._default_selector = [{'language': langid}  for langid in langids]
-        _default_opts = {'documentSelector': self._default_selector}
+        self._default_opts = {'documentSelector': self._default_selector}
 
         docsync = capabilities.get('textDocumentSync', {})
 
@@ -1331,15 +1331,15 @@ class ServerConfig:
 
             # SAVE
             if _save is not False:
-                _opts = {**_default_opts}
+                _opts = {**self._default_opts}
                 if isinstance(_save, dict):
                     _opts.update(_save)
                 self.capabs.append(Registration(id='0', method=METHOD_DID_SAVE, registerOptions=_opts))
 
         #  OPEN, CLOSE
         if is_openclose:
-            open = Registration(id='0', method=METHOD_DID_OPEN, registerOptions=_default_opts)
-            close = Registration(id='0', method=METHOD_DID_CLOSE, registerOptions=_default_opts)
+            open = Registration(id='0', method=METHOD_DID_OPEN, registerOptions=self._default_opts)
+            close = Registration(id='0', method=METHOD_DID_CLOSE, registerOptions=self._default_opts)
             self.capabs += [open, close]
 
         # CHANGE
@@ -1349,7 +1349,7 @@ class ServerConfig:
         else:
             docsynckind = TextDocumentSyncKind(docsync)
 
-        _opts = {**_default_opts, 'syncKind': docsynckind}
+        _opts = {**self._default_opts, 'syncKind': docsynckind}
         self.capabs.append(Registration(id='0', method=METHOD_DID_CHANGE, registerOptions=_opts))
 
 
@@ -1359,7 +1359,7 @@ class ServerConfig:
             # workspaceFolders
             wsfolders = workspace.get('workspaceFolders', {})
             _opts = {
-                #**_default_opts, # -- no need for workspace methods
+                #**self._default_opts, # -- no need for workspace methods
                 'supported': wsfolders.get('supported', False),
                 'changeNotifications': wsfolders.get('changeNotifications', False),
             }
@@ -1373,7 +1373,7 @@ class ServerConfig:
             if capval is False:
                 continue
 
-            _opts = {**_default_opts}
+            _opts = {**self._default_opts}
             if isinstance(capval, dict):
                 _opts.update(capval)
             self.capabs.append(Registration(id='0', method=meth, registerOptions=_opts))
@@ -1383,13 +1383,10 @@ class ServerConfig:
         """
         reg: Registration
         for reg in dynreg.registrations:
-            if reg.method == 'textDocument/completion':
-                if reg.registerOptions:
-                    opts: CompletionRegistrationOptions
-                    opts = CompletionRegistrationOptions.parse_obj(reg.registerOptions)
-                    if opts.documentSelector is None:
-                        opts.documentSelector = self._default_selector
-                        reg.registerOptions = opts.dict()
+            if reg.registerOptions and 'documentSelector' not in reg.registerOptions:
+                reg.registerOptions['documentSelector'] = self._default_selector
+            else:
+                reg.registerOptions = self._default_opts
 
         self.capabs.extend(dynreg.registrations)
 
