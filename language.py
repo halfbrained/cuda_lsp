@@ -66,7 +66,7 @@ from .sansio_lsp_client.structs import (
         CompletionTriggerKind,
     )
     
-from .snip.snippet import Snippet
+from .snip.snippet import Snippet, VS_SNIPPET
 
 import traceback
 import datetime
@@ -1657,7 +1657,7 @@ class CompletionMan:
             brackets_inserted = True
         
         if is_snippet:
-            snippet = Snippet(text=text.split('\n'))
+            snippet = Snippet(text=text.split('\n'), t=VS_SNIPPET)
             ed.delete(x1,y1,x2,y2) # delete range
             snippet.insert(ed)
             
