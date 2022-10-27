@@ -155,6 +155,7 @@ def get_project_dir():
             path = cuda_project_man.project_variables()["ProjDir"]
         elif optval == 1: # first node
             _nodes = cuda_project_man.global_project_info.get('nodes')
+            _nodes = [fn for fn in _nodes if os.path.isdir(fn)] # skip FILEnames in root
             path = _nodes[0] if _nodes else None
         elif optval == 2: # project's main-file dir
             path = cuda_project_man.global_project_info.get('mainfile')
