@@ -1631,6 +1631,8 @@ class CompletionMan:
         if item.textEdit:
             x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
             x2 = x2 + cached_x_diff +len(word2) # correction of cached (outdated) coords (only x2 is enough?)
+            if x2 > x0+len(word2): # limit x2 to the end of the word
+                x2 = x0+len(word2)
             text = item.textEdit.newText
         elif item.insertText:   text = item.insertText
         else:                   text = item.label
@@ -1638,10 +1640,8 @@ class CompletionMan:
         is_snippet = item.insertTextFormat and item.insertTextFormat == InsertTextFormat.SNIPPET
         
         has_brackets = all(b in text for b in '()')
-        if is_bracket_follows and has_brackets and text[-2:] == '()':
-            text = text[:-2]
-        if is_bracket_follows and has_brackets and text[-4:] == '($0)':
-            text = text[:-4]
+        if is_bracket_follows and has_brackets: # remove "(params)" if bracket follows
+            text = re.sub('\(([^)]*)\)$', '', text)
             
         last_char_nonword = text[-1:] in get_nonwords_chars()
         brackets_inserted = False
