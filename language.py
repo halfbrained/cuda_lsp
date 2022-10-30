@@ -1641,7 +1641,7 @@ class CompletionMan:
         
         has_brackets = all(b in text for b in '()')
         if is_bracket_follows and has_brackets: # remove "(params)" if bracket follows
-            text = re.sub('\(([^)]*)\)$', '', text)
+            text = re.sub('\([^)]*\)$', '', text)
             
         last_char_nonword = text[-1:] in get_nonwords_chars()
         brackets_inserted = False
