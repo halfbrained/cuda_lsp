@@ -1630,9 +1630,11 @@ class CompletionMan:
         cached_x_diff = x0-cached_x
         if item.textEdit:
             x1,y1,x2,y2 = EditorDoc.range2carets(item.textEdit.range)
-            x2 = x2 + cached_x_diff +len(word2) # correction of cached (outdated) coords (only x2 is enough?)
-            if x2 > x0+len(word2): # limit x2 to the end of the word
-                x2 = x0+len(word2)
+            corrected_x2 = x2 + cached_x_diff # correction of cached (outdated) coords (only x2 is enough?)
+            if corrected_x2+len(word2) > x0+len(word2): # check if we need to add len(word2) offset
+                x2 = corrected_x2
+            else:
+                x2 = corrected_x2 + len(word2)
             text = item.textEdit.newText
         elif item.insertText:   text = item.insertText
         else:                   text = item.label
