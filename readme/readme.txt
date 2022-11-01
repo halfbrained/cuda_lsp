@@ -6,8 +6,8 @@ For each LSP server, add config to the folder "settings" (folder of user.json Cu
 Config file must be named lsp_*.json ("lsp_" prefix and ".json" suffix).
 
 "Hover dialog" feature: dialog appears when you stop moving the mouse cursor, over some
-identifier, with Ctrl-key pressed (Command-key on macOS).
-
+identifier, with (Ctrl-key pressed /Command-key on macOS).
+"Definition/References/Implementation" feature:are all in Hover pop up dialog.
 
 Example for Python
 ------------------
@@ -97,5 +97,6 @@ Authors:
 - Shovel, https://github.com/halfbrained/
 - Yuriy Balyuk, https://github.com/veksha/
 - snippet.py by Alexey Torgashin (CudaText) & helpers
+- random contribs add details
 
 License: MIT
